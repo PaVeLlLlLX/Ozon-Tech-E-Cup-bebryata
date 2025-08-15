@@ -1,0 +1,23 @@
+# @package _global_
+name: MultimodalModel
+arch:
+  _target_: srcs.model.model.get_model
+  tabular_input_dim: 100
+loss:
+  _target_: srcs.model.loss.binary_cross_entropy_loss
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 0.001
+  weight_decay: 0.001
+  betas: [0.9, 0.999]
+  eps: 1e-8
+lookahead:
+  _target_: torch_optimizer.Lookahead
+  alpha: 0.5
+  k: 6
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  mode: min
+  factor: 0.2
+  patience: 3
+  min_lr: 1e-6

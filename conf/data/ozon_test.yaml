@@ -1,0 +1,12 @@
+# @package _global_
+data_loader:
+  _target_: srcs.data_loader.data_loaders.get_ozon_test_dataloader
+  path_test: data/test/
+  txt_paths_file:
+  tabular_data:
+  texts: 
+  images:
+  labels:
+  tokenizer:
+  batch_size: ${batch_size}
+  num_workers: ${n_cpu}
