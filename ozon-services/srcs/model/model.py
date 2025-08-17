@@ -7,9 +7,9 @@ import torch.nn as nn
 import torchvision
 from transformers import BertModel
 from torchvision.models import resnet18
-from tab_model import TabularNet
-from text_model import TextNet
-from image_model import ImageNet
+from srcs.model.tab_model import TabularNet
+from srcs.model.text_model import TextNet
+from srcs.model.image_model import ImageNet
 
 
 class MultimodalModel(nn.Module):
