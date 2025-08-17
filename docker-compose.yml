@@ -1,0 +1,12 @@
+services:
+  ozon-services:
+    build: .
+    container_name: ozon-services-container
+    volumes:
+      - ./ozon-services:/code
+    working_dir: /code
+    command: python train.py
+    environment:
+      - PYTHONUNBUFFERED=1
+    stdin_open: true
+    tty: true
