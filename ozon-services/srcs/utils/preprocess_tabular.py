@@ -84,9 +84,19 @@ def process_data(is_train=True):
         print("Обработка TEST данных...")
         df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_test.csv'), index_col='id')
 
-    # Заполняем пропуски в brand_name ДО создания признаков
+    print("Явная обработка пропусков...")
+    
+    # Категориальные
     df['brand_name'] = df['brand_name'].fillna('__MISSING__')
-    df = create_features(df)
+    df['CommercialTypeName4'] = df['CommercialTypeName4'].fillna('__MISSING__')
+
+    # Числовые, где NaN означает 0 (рейтинги, комментарии)
+    rating_cols = [col for col in df.columns if 'rating' in col or 'count' in col]
+    df[rating_cols] = df[rating_cols].fillna(0)
+
+    # Числовые, где NaN означает "активности не было" (продажи, возвраты)
+    activity_cols = [col for col in df.columns if 'Gmv' in col or 'Exemplar' in col or 'Order' in col]
+    df[activity_cols] = df[activity_cols].fillna(0)
     
     target_encode_cols = ['brand_name', 'SellerID', 'CommercialTypeName4']
     
