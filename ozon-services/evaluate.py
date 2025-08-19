@@ -1,6 +1,7 @@
 import logging
 import torch
 import hydra
+import pandas as pd
 from omegaconf import OmegaConf
 from tqdm import tqdm
 from srcs.utils import instantiate
@@ -11,36 +12,36 @@ logger = logging.getLogger('evaluate')
 from PIL import Image
 import matplotlib.pyplot as plt
 
-test_path = "/home/pavel/VSC/SHIFT-intensive/data/test/E/E152.jpg"
-image = Image.open(test_path).convert('L')
+# test_path = "/home/pavel/VSC/SHIFT-intensive/data/test/E/E152.jpg"
+# image = Image.open(test_path).convert('L')
 #image = transform(image).to("cpu")
 #alphabet = dataloader.dataset.alphabet
-def show_image(image):
-    plt.imshow(image, cmap='gray')
-    plt.axis('off')
-    plt.show()
+# def show_image(image):
+#     plt.imshow(image, cmap='gray')
+#     plt.axis('off')
+#     plt.show()
 
-@hydra.main(version_base=None,config_path='conf', config_name='evaluate')
+@hydra.main(version_base=None, config_path='conf', config_name='evaluate')
 def main(config):
     logger.info('Loading checkpoint: {} ...'.format(config.checkpoint))
-    #checkpoint = torch.load(config.checkpoint)
-    checkpoint = torch.load('/home/pavel/VSC/SHIFT-intensive/ckpt/model_best.pth', map_location=torch.device('cpu'))
-    # setup data_loader instances
-    print(config.data_loader)
-    data_loader = instantiate(config.data_loader)
+    checkpoint = torch.load(config.checkpoint, map_location=torch.device('cuda'))
 
-    # restore network architecture
-    model = instantiate(config.arch)
+    logger.info(f"Loading test data from {config.data.csv_path}")
+    test_df = pd.read_csv(hydra.utils.to_absolute_path(config.data.csv_path))
+
+    # ПРЕДОБРАБОТКА ДАННЫХ КАК В train.py
+
+    data_loader = instantiate(config.data_loader, test_df=test_df)
+
+    tabular_input_dim = len(config.data.tabular_cols)
+    model = instantiate(config.arch, tabular_input_dim=tabular_input_dim)
     logger.info(model)
 
-    # load trained weights
     model.load_state_dict(checkpoint)
 
-    # instantiate loss and metrics
-    criterion = instantiate(config.loss, is_func=True)
+    criterion = instantiate(config.loss)
     metrics = [instantiate(met, is_func=True) for met in config.metrics]
 
-    # prepare model for testing
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
     model.eval()
@@ -49,21 +50,17 @@ def main(config):
     total_metrics = torch.zeros(len(metrics))
 
     with torch.no_grad():
-        for i, (data, target) in enumerate(tqdm(data_loader)):
-            data, target = data.to(device), target.to(device)
-            output = model(data)
-            #show_image(data)
-            print("OUTPUT", output, target)
-            #
-            # save sample images, or do something with output here
-            #
-
-            # computing loss, metrics on test set
-            metric_output = output.argmax(dim=1)
+        for i, (batch_data, target) in enumerate(tqdm(data_loader)):
+            batch_data = {k: v.to(device) for k, v in batch_data.items()}
+            target = target.to(device)
+            
+            output = model(**batch_data)
 
             loss = criterion(output, target)
-            batch_size = data.shape[0]
+            batch_size = target.shape[0]
             total_loss += loss.item() * batch_size
+
+            metric_output = torch.round(output)
             for i, metric in enumerate(metrics):
                 total_metrics[i] += metric(metric_output.cpu(), target.cpu()) * batch_size
 
@@ -76,5 +73,4 @@ def main(config):
 
 
 if __name__ == '__main__':
-    # pylint: disable=no-value-for-parameter
     main()
