@@ -1,12 +1,20 @@
 # @package _global_
+data:
+  csv_path: "../data/test/ml_ozon_сounterfeit_test.csv"
+  images_dir: "../data/test/ml_ozon_сounterfeit_test_images/"
+
+  id_col: "id"
+  target_col: "resolution"
+  text_cols: ${data.text_cols}
+  tabular_cols: ${data.tabular_cols}
+
 data_loader:
-  _target_: srcs.data_loader.data_loaders.get_ozon_test_dataloader
-  path_test: data/test/
-  txt_paths_file:
-  tabular_data:
-  texts: 
-  images:
-  labels:
-  tokenizer:
+  _target_: srcs.data_loader.data_loaders.get_test_dataloader
+  images_dir: ${data.images_dir}
+  tokenizer: ${tokenizer}
+  tabular_cols: ${data.tabular_cols}
+  target_col: ${data.target_col}
+  id_col: ${data.id_col}
+  text_cols: ${data.text_cols}
   batch_size: ${batch_size}
   num_workers: ${n_cpu}

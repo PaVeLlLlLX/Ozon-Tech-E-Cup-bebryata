@@ -1,0 +1,71 @@
+# @package _global_
+data:
+  csv_path: "../data/train/ml_ozon_сounterfeit_train.csv"
+  images_dir: "../data/train/ml_ozon_сounterfeit_train_images/"
+  
+  id_col: "ItemID"
+  target_col: "resolution"
+
+  text_cols:
+    - "brand_name"
+    - "description"
+    - "name_rus"
+    - "CommercialTypeName4"
+
+  tabular_cols:
+    - rating_1_count
+    - rating_2_count
+    - rating_3_count
+    - rating_4_count
+    - rating_5_count
+    - comments_published_count
+    - photos_published_count
+    - videos_published_count
+    - PriceDiscounted
+    - item_time_alive
+    - item_count_fake_returns7
+    - item_count_fake_returns30
+    - item_count_fake_returns90
+    - item_count_sales7
+    - item_count_sales30
+    - item_count_sales90
+    - item_count_returns7
+    - item_count_returns30
+    - item_count_returns90
+    - GmvTotal7
+    - GmvTotal30
+    - GmvTotal90
+    - ExemplarAcceptedCountTotal7
+    - ExemplarAcceptedCountTotal30
+    - ExemplarAcceptedCountTotal90
+    - OrderAcceptedCountTotal7
+    - OrderAcceptedCountTotal30
+    - OrderAcceptedCountTotal90
+    - ExemplarReturnedCountTotal7
+    - ExemplarReturnedCountTotal30
+    - ExemplarReturnedCountTotal90
+    - ExemplarReturnedValueTotal7
+    - ExemplarReturnedValueTotal30
+    - ExemplarReturnedValueTotal90
+    - ItemVarietyCount
+    - ItemAvailableCount
+    - seller_time_alive
+    - SellerID
+
+  val_size: 0.1
+
+tokenizer:
+  _target_: transformers.AutoTokenizer.from_pretrained
+  pretrained_model_name_or_path: "cointegrated/rubert-tiny2"
+  model_name: "cointegrated/rubert-tiny2"
+
+data_loader:
+  _target_: srcs.data_loader.data_loaders.get_dataloaders
+  images_dir: ${data.images_dir}
+  tokenizer: ${tokenizer}
+  tabular_cols: ${data.tabular_cols}
+  target_col: ${data.target_col}
+  id_col: ${data.id_col}
+  text_cols: ${data.text_cols}
+  batch_size: ${batch_size}
+  num_workers: ${n_cpu}
