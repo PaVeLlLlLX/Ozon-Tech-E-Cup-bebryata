@@ -4,6 +4,7 @@ import torch
 import re
 import albumentations as A
 import matplotlib.pyplot as plt
+import pandas as pd
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from albumentations.pytorch import ToTensorV2
@@ -43,20 +44,24 @@ transform_val = A.Compose([
 ])
 
 class OzonDataset(Dataset):
-    def __init__(self, df, images_dir, tokenizer, tabular_cols, target_col, id_col='id', transform=None):
+    def __init__(self, df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, transform=None):
         self.df = df
         self.images_dir = Path(images_dir)
         self.tokenizer = tokenizer
         self.transform = transform
+        self.tabular_cols = tabular_cols
+        self.target_col = target_col
+        self.id_col = id_col
+        self.text_cols = text_cols
 
-        self.image_paths = self.df[id_col].apply(lambda x: self.images_dir / f"{x}.png").tolist()
+        self.image_paths = self.df[self.id_col].apply(lambda x: self.images_dir / f"{x}.png").tolist()
         
-        self.texts = self.df.apply(
-            lambda row: f"{row['description']} [SEP] {row['name_rus']}", axis=1
+        self.texts = self.df[self.text_cols].apply(
+            lambda row: ' [SEP] '.join(row.values.astype(str)), axis=1
         ).tolist()
             
-        self.tabular_features = torch.FloatTensor(self.df[tabular_cols].values)
-        self.labels = torch.FloatTensor(self.df[target_col].values)
+        self.tabular_features = torch.FloatTensor(self.df[self.tabular_cols].values)
+        self.labels = torch.FloatTensor(self.df[self.target_col].values)
 
     def __len__(self):
         return len(self.df)
@@ -67,8 +72,8 @@ class OzonDataset(Dataset):
             image = cv2.imread(str(image_path))
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         except Exception as e:
-            print(f"Error upload image {image_path}: {e}")
-            image = np.zeros((500, 500, 3), dtype=np.uint8)
+            print(f"Error loading image {image_path}: {e}")
+            image = np.zeros((224, 224, 3), dtype=np.uint8)
 
         if self.transform:
             image = self.transform(image=image)['image']
@@ -78,7 +83,7 @@ class OzonDataset(Dataset):
             text, 
             padding="max_length", 
             truncation=True, 
-            max_length=2048,
+            max_length=512,
             return_tensors="pt"
         )
 
@@ -90,11 +95,10 @@ class OzonDataset(Dataset):
             "input_ids": tokenized_text["input_ids"].squeeze(0),
             "attention_mask": tokenized_text["attention_mask"].squeeze(0),
             "tabular": tabular,
-            "label": label
-        }
+        }, label
 
 
-def get_dataloaders(train_df, val_df, images_dir, tokenizer, tabular_cols, target_col, id_col, batch_size, num_workers=4):
+def get_dataloaders(train_df, val_df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, batch_size, num_workers=4):
     train_dataset = OzonDataset(
         df=train_df,
         images_dir=images_dir,
@@ -102,9 +106,9 @@ def get_dataloaders(train_df, val_df, images_dir, tokenizer, tabular_cols, targe
         tabular_cols=tabular_cols,
         target_col=target_col,
         id_col=id_col,
+        text_cols=text_cols,
         transform=transform_train
     )
-
     val_dataset = OzonDataset(
         df=val_df,
         images_dir=images_dir,
@@ -112,25 +116,27 @@ def get_dataloaders(train_df, val_df, images_dir, tokenizer, tabular_cols, targe
         tabular_cols=tabular_cols,
         target_col=target_col,
         id_col=id_col,
+        text_cols=text_cols,
         transform=transform_val
     )
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=num_workers
-    )
-    
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     return train_loader, val_loader
 
+
+def get_test_dataloader(test_df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, batch_size, num_workers=4):
+    test_dataset = OzonDataset(
+        df=test_df,
+        images_dir=images_dir,
+        tokenizer=tokenizer,
+        tabular_cols=tabular_cols,
+        target_col=target_col,
+        id_col=id_col,
+        text_cols=text_cols,
+        transform=transform_val
+    )
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    return test_loader
 
 
 def plot_augmented_samples(dataset, n=5):

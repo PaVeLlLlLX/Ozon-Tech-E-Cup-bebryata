@@ -2,11 +2,13 @@ import numpy as np
 import hydra
 import torch
 import torchvision
-from omegaconf import OmegaConf
+import pandas as pd
+from omegaconf import DictConfig, OmegaConf
 from pathlib import Path
 from srcs.trainer import Trainer
 from srcs.utils import instantiate, get_logger, is_master
 from srcs.model.model import get_model
+from sklearn.model_selection import train_test_split
 # fix random seeds for reproducibility
 SEED = 123
 torch.manual_seed(SEED)
@@ -15,38 +17,50 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
 
-def train_worker(config):
-    if is_master():
-        print(config)
+def train_worker(config: DictConfig):
     logger = get_logger('train')
-    # setup data_loader instances
-    data_loader, valid_data_loader = instantiate(config.data_loader)
+    if config.cwd and is_master():
+        logger.info(f"Working directory: {config.cwd}")
+        print(OmegaConf.to_yaml(config))
 
-    # build model. print it's structure and # trainable params.
-    # ДООБУЧЕНИЕ
-    model = instantiate(config.arch)
-    #checkpoint = torch.load("./ckpt/model_best.pth")
-    #model = get_model()
-    #model.load_state_dict(checkpoint)
+    logger.info("Loading and preparing data...")
+    full_df = pd.read_csv(hydra.utils.to_absolute_path(config.data.csv_path))
+    
+    # ПРЕДОБРАБОТКА ДАННЫХ
+    
+    train_df, val_df = train_test_split(
+        full_df,
+        test_size=config.data.val_size,
+        random_state=SEED,
+        stratify=full_df[config.data.target_col]
+    )
+    logger.info(f"Data split: {len(train_df)} train, {len(val_df)} validation samples.")
+
+    data_loader, valid_data_loader = instantiate(
+        config.data_loader, 
+        train_df=train_df, 
+        val_df=val_df
+    )
+
+    tabular_input_dim = len(config.data.tabular_cols)
+    logger.info(f"Tabular input dimension: {tabular_input_dim}")
+    model = instantiate(config.arch, tabular_input_dim=tabular_input_dim)
 
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     logger.info(model)
     logger.info(f'Trainable parameters: {sum([p.numel() for p in trainable_params])}')
 
-    # get function handles of loss and metrics
-    criterion = instantiate(config.loss, is_func=True)
+    criterion = instantiate(config.loss)
     metrics = [instantiate(met, is_func=True) for met in config['metrics']]
-
-    # build optimizer, learning rate scheduler.
+    
     optimizer = instantiate(config.optimizer, model.parameters())
     lr_scheduler = instantiate(config.lr_scheduler, optimizer)
-
-    trainer = Trainer(model, 10, criterion, metrics, optimizer,
+    
+    trainer = Trainer(model, config.trainer.epochs, criterion, metrics, optimizer,
                       config=config,
                       data_loader=data_loader,
                       valid_data_loader=valid_data_loader,
-                      lr_scheduler=lr_scheduler
-                      )
+                      lr_scheduler=lr_scheduler)
     trainer.train()
 
 def init_worker(working_dir, config):
