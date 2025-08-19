@@ -98,6 +98,8 @@ def process_data(is_train=True):
     activity_cols = [col for col in df.columns if 'Gmv' in col or 'Exemplar' in col or 'Order' in col]
     df[activity_cols] = df[activity_cols].fillna(0)
     
+    df = create_features(df)
+
     target_encode_cols = ['brand_name', 'SellerID', 'CommercialTypeName4']
     
     numeric_cols = list(df.select_dtypes(include=np.number).columns)
