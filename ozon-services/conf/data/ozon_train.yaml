@@ -1,14 +1,10 @@
 # @package _global_
 data_loader:
-  _target_: srcs.data_loader.data_loaders.get_ozon_dataloader
-  path_train: data/train/
-  path_val: data/val/
+  _target_: srcs.data_loader.data_loaders.get_train_dataloader
+  images_dir: data/train/ml_ozon_сounterfeit_train_images/
+  tokenizer: ${tokenizer}
+  tabular_cols: ${data.tabular_cols}
+  target_col: ${data.target_col}
+  id_col: ${data.id_col}
   batch_size: ${batch_size}
-  txt_paths_file: 1
-  tabular_data: 1
-  texts: 1
-  images: 1
-  labels: 1
-  tokenizer: 1
-  shuffle: true
   num_workers: ${n_cpu}

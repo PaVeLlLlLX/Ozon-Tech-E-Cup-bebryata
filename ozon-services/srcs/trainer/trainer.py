@@ -7,17 +7,12 @@ from srcs.logger import BatchMetrics
 
 
 class Trainer(BaseTrainer):
-    """
-    Trainer class
-    """
-
     def __init__(self, model, epochs, criterion, metric_ftns, optimizer, config, data_loader,
                  valid_data_loader=None, lr_scheduler=None, len_epoch=None):
         super().__init__(model, epochs, criterion, metric_ftns, optimizer, config)
         self.config = config
         self.data_loader = data_loader
         if len_epoch is None:
-            # epoch-based training
             self.len_epoch = len(self.data_loader)
         else:
             # iteration-based training
@@ -32,81 +27,69 @@ class Trainer(BaseTrainer):
                                           writer=self.writer)
 
     def _train_epoch(self, epoch):
-        """
-        Training logic for an epoch
-
-        :param epoch: Integer, current training epoch.
-        :return: A log that contains average loss and metric in this epoch.
-        """
         self.model.train()
         self.train_metrics.reset()
-        for batch_idx, (data, target) in enumerate(self.data_loader):
-            data, target = data.to(self.device), target.to(self.device)
+        for batch_idx, (batch_data, target) in enumerate(self.data_loader):
+            batch_data = {k: v.to(self.device) for k, v in batch_data.items()}
+            target = target.to(self.device).squeeze(1).float() 
 
             self.optimizer.zero_grad()
-            output = self.model(data)
+            output = self.model(**batch_data)
 
             loss = self.criterion(output, target)
             loss.backward()
             self.optimizer.step()
+            
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
-            if self.config['n_gpu'] == 0:
-                self.train_metrics.update('loss', loss.detach().numpy())
-            else:
-                self.train_metrics.update('loss', loss.detach().cpu().numpy())
+            self.train_metrics.update('loss', loss.item())
 
             if batch_idx % self.log_step == 0:
-                for met in self.metric_ftns:
-                    metric_output = output.argmax(dim=1)
-                    metric = met(metric_output.cpu(), target.cpu())  # average metric between processes
-                    self.train_metrics.update(met.__name__, metric)
                 self.logger.info(f'Train Epoch: {epoch} {self._progress(batch_idx)} Loss: {loss.item():.6f}')
+                
+                with torch.no_grad():
+                    metric_output = torch.round(output) 
+                    for met in self.metric_ftns:
+                        self.train_metrics.update(met.__name__, met(metric_output.cpu(), target.cpu()))
 
             if batch_idx == self.len_epoch:
                 break
+        
         log = self.train_metrics.result()
 
         if self.valid_data_loader is not None:
             val_log = self._valid_epoch(epoch)
             log.update(**val_log)
-
+        
         if self.lr_scheduler is not None:
             if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                # Передаем валидационную потерю в ReduceLROnPlateau
                 val_loss = val_log['loss/valid']
                 self.lr_scheduler.step(val_loss)
             else:
-                # Для других планировщиков вызываем step без аргументов
                 self.lr_scheduler.step()
 
-        # add result metrics on entire epoch to tensorboard
         self.writer.set_step(epoch)
         if epoch == 1 and is_master():
-            self.writer.add_graph(self.model, data)
+            self.writer.add_graph(self.model, batch_data)
         for k, v in log.items():
             self.writer.add_scalar(k + '/epoch', v)
         return log
 
     def _valid_epoch(self, epoch):
-        """
-        Validate after training an epoch
-
-        :param epoch: Integer, current training epoch.
-        :return: A log that contains information about validation
-        """
         self.model.eval()
         self.valid_metrics.reset()
         with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(self.valid_data_loader):
-                data, target = data.to(self.device), target.to(self.device)
+            for batch_idx, (batch_data, target) in enumerate(self.valid_data_loader):
+                batch_data = {k: v.to(self.device) for k, v in batch_data.items()}
+                target = target.to(self.device)
 
-                output = self.model(data)
+                output = self.model(**batch_data)
                 loss = self.criterion(output, target)
 
-                self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx)
+                self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx, 'valid')
                 self.valid_metrics.update('loss', loss.item())
+                
+                metric_output = torch.round(output)
                 for met in self.metric_ftns:
-                    metric_output = output.argmax(dim=1)
                     self.valid_metrics.update(met.__name__, met(metric_output.cpu(), target.cpu()))
 
         return self.valid_metrics.result()

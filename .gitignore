@@ -148,3 +148,6 @@ ckpt/
 *.pth
 tensorboard/
 .hydra/
+
+/data/
+/run/
