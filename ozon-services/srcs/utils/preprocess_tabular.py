@@ -57,10 +57,6 @@ def brand_match_score(row):
 
 def create_features(df):
     """Добавляет в DataFrame новые признаки, созданные на основе EDA."""
-    print("Очистка текстовых описаний...")
-    df['description'] = df['description'].apply(clean_description)
-    df['name_rus'] = df['name_rus'].apply(clean_description)
-    df['brand_name'] = df['brand_name'].apply(clean_name)
 
     print("Создание новых признаков...")
     
@@ -83,20 +79,19 @@ def create_features(df):
 def process_data(is_train=True):
     """Основная функция для обработки данных и сохранения артефактов."""
     
-    base_data_path = 'data/'
+    base_data_path = './data/'
     if is_train:
         print("Обработка TRAIN данных...")
-        df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_train.csv'))
+        df = pd.read_csv(os.path.join(base_data_path, 'train/ml_ozon_сounterfeit_train.csv'))
     else:
         print("Обработка TEST данных...")
-        df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_test.csv'))
+        df = pd.read_csv(os.path.join(base_data_path, 'test/ml_ozon_сounterfeit_test.csv'))
 
 
     # Сохраняем ключевые колонки, которые нужно оставить "как есть"
     key_cols = ['id', 'name_rus', 'ItemID']
     if is_train:
         key_cols.append('resolution')
-    df_keys = df[key_cols].copy()
 
     print("Явная обработка пропусков...")
     
@@ -104,8 +99,6 @@ def process_data(is_train=True):
     df['brand_name'] = df['brand_name'].fillna('__MISSING__')
     df['CommercialTypeName4'] = df['CommercialTypeName4'].fillna('__MISSING__')
     df['description'] = df['description'].fillna('__MISSING__')
-
-    df_keys['description'] = df['description']
 
     # Числовые, где NaN означает 0 (рейтинги, комментарии)
     rating_cols = [col for col in df.columns if 'rating' in col or 'count' in col or 'Count' in col]
@@ -115,7 +108,16 @@ def process_data(is_train=True):
     activity_cols = [col for col in df.columns if 'Gmv' in col or 'Exemplar' in col or 'Order' in col]
     df[activity_cols] = df[activity_cols].fillna(0)
 
+    print("Очистка текстовых описаний...")
+
+    df['description'] = df['description'].apply(clean_description)
+    df['name_rus'] = df['name_rus'].apply(clean_description)
+    df['brand_name'] = df['brand_name'].apply(clean_name)
+
     df = create_features(df)
+
+    df_keys = df[key_cols].copy()
+    df_keys['description'] = df['description']
     
     target_encode_cols = ['brand_name', 'SellerID', 'CommercialTypeName4']
     
@@ -187,5 +189,5 @@ if __name__ == '__main__':
         os.chdir('../../')
         print(f"Рабочая директория изменена на: {os.getcwd()}")
 
-    process_data(is_train=True)
+    # process_data(is_train=True)
     process_data(is_train=False)

@@ -1,6 +1,5 @@
 import re
 import pymorphy2
-from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
 
 morph = pymorphy2.MorphAnalyzer()
@@ -41,9 +40,9 @@ def clean_description(text: str) -> str:
     if not isinstance(text, str):
         return ""
 
-    # 1. Удаляем HTML-теги с помощью BeautifulSoup
-    soup = BeautifulSoup(text, "html.parser")
-    text = soup.get_text()
+    # 1. Удаляем HTML-теги
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r'&[a-zA-Z0-9#]+;', ' ', text)
 
     # 2. Приводим к нижнему регистру
     text = text.lower()
@@ -66,8 +65,8 @@ def clean_description(text: str) -> str:
 if __name__ == '__main__':
     brand_example = "JBL."
     category_example = "Картридж, чернила, тонер"
-    name_example = "LeBefane Системный блок (AMD Ryzen 5, RAM 64 ГБ)"
+    name_example = "<li>Тип товара Новый</li><li><b>Тип</b> Картридж<li><b>Назначение</b> для лазерных принтеров/МФУ<li><b>Цвет</b> черный<li><b>Цвет картриджа</b> черный<li><b>Модель</b> 071H<li><b>PartNumber/Артикул Производителя</b> 5646C002<li><b>Ресурс, страниц</b> 2500<li><b>Принадлежность к группе</b> Оригинальные<li><b>Принадлежность к подгруппе</b> Тонер-картриджи<li><b>Совместимость</b> i-SENSYS LBP122dw/MF272dw/ MF275dw<li><b>Оригинальность</b> оригинальный<li><b>Повышенная ёмкость/ресурс</b> ДА<li><b>Длина упаковки (ед)</b> 0.365<li><b>Ширина упаковки (ед)</b> 0.11<li><b>Габариты упаковки (ед) ДхШхВ</b> 0.365x0.11x0.135<li><b>Высота упаковки (ед)</b> 0.135<li><b>Вес упаковки (ед)"
     
     print(f"Бренд '{brand_example}' -> '{clean_name(brand_example)}'")
     print(f"Категория '{category_example}' -> '{clean_name(category_example)}'")
-    print(f"Название товара '{name_example}' -> '{clean_description(name_example)}'")
+    print(f"Название товара -> '{clean_description(name_example)}'")
