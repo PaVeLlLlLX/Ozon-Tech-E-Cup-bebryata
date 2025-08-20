@@ -45,8 +45,8 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
 # --- Функции для создания признаков ---
 def brand_match_score(row):
     # Работа с ОЧИЩЕННЫМИ данными
-    name = str(row['name_rus_cleaned']) # Используем очищенное название
-    brand = str(row['brand_name_cleaned']) # Используем очищенный бренд
+    name = str(row['name_rus']) # Используем очищенное название
+    brand = str(row['brand_name']) # Используем очищенный бренд
     if not brand: return -1
     if brand in name: return 1
     try:
@@ -58,9 +58,9 @@ def brand_match_score(row):
 def create_features(df):
     """Добавляет в DataFrame новые признаки, созданные на основе EDA."""
     print("Очистка текстовых описаний...")
-    df['description_cleaned'] = df['description'].apply(clean_description)
-    df['name_rus_cleaned'] = df['name_rus'].apply(clean_description)
-    df['brand_name_cleaned'] = df['brand_name'].apply(clean_name)
+    df['description'] = df['description'].apply(clean_description)
+    df['name_rus'] = df['name_rus'].apply(clean_description)
+    df['brand_name'] = df['brand_name'].apply(clean_name)
 
     print("Создание новых признаков...")
     
