@@ -16,3 +16,4 @@ python-Levenshtein==0.25.1
 pyarrow==17.0.0
 pymorphy2
 nltk
+catboost==1.2.8
