@@ -79,59 +79,61 @@ def process_data(is_train=True):
     base_data_path = 'data/'
     if is_train:
         print("Обработка TRAIN данных...")
-        df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_train.csv'), index_col='id')
+        df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_train.csv'))
     else:
         print("Обработка TEST данных...")
-        df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_test.csv'), index_col='id')
+        df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_test.csv'))
+
+
+    # Сохраняем ключевые колонки, которые нужно оставить "как есть"
+    key_cols = ['id', 'name_rus', 'ItemID']
+    if is_train:
+        key_cols.append('resolution')
+    df_keys = df[key_cols].copy()
 
     print("Явная обработка пропусков...")
     
     # Категориальные
     df['brand_name'] = df['brand_name'].fillna('__MISSING__')
     df['CommercialTypeName4'] = df['CommercialTypeName4'].fillna('__MISSING__')
+    df['description'] = df['description'].fillna('__MISSING__')
+
+    df_keys['description'] = df['description']
 
     # Числовые, где NaN означает 0 (рейтинги, комментарии)
-    rating_cols = [col for col in df.columns if 'rating' in col or 'count' in col]
+    rating_cols = [col for col in df.columns if 'rating' in col or 'count' in col or 'Count' in col]
     df[rating_cols] = df[rating_cols].fillna(0)
 
     # Числовые, где NaN означает "активности не было" (продажи, возвраты)
     activity_cols = [col for col in df.columns if 'Gmv' in col or 'Exemplar' in col or 'Order' in col]
     df[activity_cols] = df[activity_cols].fillna(0)
-    
-    df = create_features(df)
 
+    df = create_features(df)
+    
     target_encode_cols = ['brand_name', 'SellerID', 'CommercialTypeName4']
     
     numeric_cols = list(df.select_dtypes(include=np.number).columns)
     
-    cols_to_remove_from_numeric = ['resolution', 'ItemID', 'SellerID']
-    numeric_cols = [col for col in numeric_cols if col not in cols_to_remove_from_numeric]
+    cols_to_remove_from_numeric = ['id', 'resolution', 'ItemID', 'SellerID']
+    numeric_cols_to_scale = [col for col in numeric_cols if col not in cols_to_remove_from_numeric]
 
     df['SellerID'] = df['SellerID'].astype(str)
     
-    numeric_transformer = Pipeline(steps=[
-        ('imputer', SimpleImputer(strategy='median')),
-        ('scaler', StandardScaler())
-    ])
-    
-    target_transformer = Pipeline(steps=[
-        ('target_encoder', TargetEncoder())
-    ])
-
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('num', numeric_transformer, numeric_cols),
-            ('target', target_transformer, target_encode_cols)
-        ],
-        remainder='drop'
-    )
-
     if is_train:
-        print("Обучение препроцессора...")
-        X = df.drop(columns=['resolution', 'description', 'name_rus', 'ItemID'], errors='ignore')
+        print("Обучение препроцессоров...")
+        X = df.drop(columns=['resolution'], errors='ignore')
         y = df['resolution']
-        preprocessor.fit(X, y)
         
+        # Обучаем Scaler
+        scaler = StandardScaler()
+        scaler.fit(X[numeric_cols_to_scale])
+        
+        # Обучаем Target Encoder
+        target_encoder = TargetEncoder()
+        target_encoder.fit(X[target_encode_cols], y)
+        
+        # Сохраняем оба в виде словаря
+        preprocessor = {'scaler': scaler, 'target_encoder': target_encoder}
         print("Сохранение артефакта препроцессора в 'artifacts/preprocessor.pkl'...")
         os.makedirs('artifacts', exist_ok=True)
         with open("artifacts/preprocessor.pkl", "wb") as f:
@@ -140,26 +142,35 @@ def process_data(is_train=True):
         print("Загрузка обученного препроцессора...")
         with open("artifacts/preprocessor.pkl", "rb") as f:
             preprocessor = pickle.load(f)
-        X = df.drop(columns=['description', 'name_rus', 'ItemID'], errors='ignore')
+        scaler = preprocessor['scaler']
+        target_encoder = preprocessor['target_encoder']
+        X = df # Для теста X это весь df
 
-    print("Трансформация данных...")
-    X_transformed = preprocessor.transform(X)
+    print("Трансформация данных и добавление новых признаков...")
     
-    new_cols = numeric_cols + [f"{c}_te" for c in target_encode_cols]
-    df_final = pd.DataFrame(X_transformed, columns=new_cols, index=df.index)
+    # 1. Применяем Scaler и добавляем отмасштабированные признаки с новым суффиксом
+    scaled_data = scaler.transform(X[numeric_cols_to_scale])
+    df_scaled = pd.DataFrame(scaled_data, columns=[f"{c}_scaled" for c in numeric_cols_to_scale], index=X.index)
+    
+    # 2. Применяем Target Encoder, он вернет DataFrame с _te суффиксами
+    encoded_data = target_encoder.transform(X[target_encode_cols])
+    
+    # 3. Объединяем все в один большой DataFrame: исходный + отмасштабированные + закодированные
+    df_final = pd.concat([df_keys, df_scaled, encoded_data], axis=1)
     
     if is_train:
-        df_final['resolution'] = df['resolution']
-        output_path = 'data/processed/train.parquet'
+        output_path = 'data/processed/train.csv'
     else:
-        output_path = 'data/processed/test.parquet'
+        output_path = 'data/processed/test.csv'
         
     os.makedirs('data/processed', exist_ok=True)
-    df_final.to_parquet(output_path)
+    # Сохраняем в CSV
+    df_final.to_csv(output_path, index=False)
     
     print(f"Обработка завершена! Результат сохранен в {output_path}")
-    print(f"Итоговая форма признаков: {df_final.shape}")
-    print(df_final.head())
+    print(f"Итоговая форма DataFrame: {df_final.shape}")
+    print("Пример колонок:", list(df_final.columns[:5]), "...", list(df_final.columns[-5:]))
+
 
 
 if __name__ == '__main__':
