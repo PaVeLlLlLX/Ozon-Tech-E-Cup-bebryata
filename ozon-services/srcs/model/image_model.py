@@ -16,5 +16,6 @@ class ImageNet(nn.Module):
         self.cnn.fc = nn.Identity()
     
     def forward(self, x):
-        return self.cnn(x)  #[batch_size, 512]
-    
+        x = self.cnn(x)  #[batch_size, 512]
+        #print("Image features", x)
+        return x

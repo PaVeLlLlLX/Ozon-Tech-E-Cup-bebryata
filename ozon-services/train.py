@@ -68,11 +68,11 @@ def train_worker(config: DictConfig):
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     logger.info(model)
     logger.info(f'Trainable parameters: {sum([p.numel() for p in trainable_params])}')
-    
-    # pos_weight = torch.tensor([14.1])
-    # criterion = instantiate(config.loss, pos_weight=pos_weight)
 
-    criterion = instantiate(config.loss)
+    pos_weight = torch.tensor([8.0]).to(device="cuda")
+    criterion = instantiate(config.loss, pos_weight=pos_weight)
+
+    # criterion = instantiate(config.loss)
     metrics = [instantiate(met, is_func=True) for met in config['metrics']]
     
     optimizer = instantiate(config.optimizer, model.parameters())

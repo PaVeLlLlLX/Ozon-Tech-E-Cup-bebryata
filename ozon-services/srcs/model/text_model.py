@@ -15,4 +15,5 @@ class TextNet(nn.Module):
     
     def forward(self, input_ids, attention_mask):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        #print("Text features", outputs.last_hidden_state[:, 0, :])
         return outputs.last_hidden_state[:, 0, :]  #[batch_size, 768]
