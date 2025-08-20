@@ -102,7 +102,7 @@ class OzonDataset(Dataset):
         }, label
 
 
-def get_dataloaders(train_df, val_df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, batch_size, num_workers=4):
+def get_dataloaders(train_df, val_df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, batch_size, num_workers=None):
     train_dataset = OzonDataset(
         df=train_df,
         images_dir=images_dir,
@@ -123,12 +123,12 @@ def get_dataloaders(train_df, val_df, images_dir, tokenizer, tabular_cols, targe
         text_cols=text_cols,
         transform=transform_val
     )
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=16, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=16, pin_memory=True)
     return train_loader, val_loader
 
 
-def get_test_dataloader(test_df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, batch_size, num_workers=4):
+def get_test_dataloader(test_df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, batch_size, num_workers=None):
     test_dataset = OzonDataset(
         df=test_df,
         images_dir=images_dir,
@@ -139,7 +139,7 @@ def get_test_dataloader(test_df, images_dir, tokenizer, tabular_cols, target_col
         text_cols=text_cols,
         transform=transform_val
     )
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=16)
     return test_loader
 
 

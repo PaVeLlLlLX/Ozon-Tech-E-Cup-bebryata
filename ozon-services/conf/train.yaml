@@ -1,5 +1,5 @@
 resume: #ckpt/model_best.pth
-save_dir: ckpt/
+save_dir: ../ckpt/
 log_dir: tensorboard/
 gpu: true
 n_gpu: 2
