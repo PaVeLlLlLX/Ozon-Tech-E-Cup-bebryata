@@ -151,3 +151,4 @@ tensorboard/
 
 /data/
 /run/
+/ozon-services/conf/
