@@ -63,8 +63,9 @@ class OzonDataset(Dataset):
         self.texts = self.df[self.text_cols].apply(
             lambda row: ' [SEP] '.join(row.values.astype(str)), axis=1
         ).tolist()
-            
-        self.tabular_features = torch.FloatTensor(self.df[self.tabular_cols].values)
+
+        self.tabular_features = self.df # для catboost
+        #self.tabular_features = torch.FloatTensor(self.df[self.tabular_cols].values) # для mlp
         self.labels = torch.FloatTensor(self.df[self.target_col].values)
 
     def __len__(self):
