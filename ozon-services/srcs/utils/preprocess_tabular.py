@@ -12,6 +12,44 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from Levenshtein import distance as lev_distance
 from preprocess_text import clean_description, clean_name
 
+# --- Новая функция для оптимизации памяти ---
+def optimize_memory_usage(df):
+    """
+    Итерируется по всем колонкам DataFrame и изменяет тип данных
+    для уменьшения использования памяти.
+    """
+    start_mem = df.memory_usage().sum() / 1024**2
+    print(f'Использование памяти до оптимизации: {start_mem:.2f} MB')
+
+    for col in df.columns:
+        col_type = df[col].dtype
+
+        if col_type != object and col_type.name != 'category':
+            c_min = df[col].min()
+            c_max = df[col].max()
+            if str(col_type)[:3] == 'int':
+                if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
+                    df[col] = df[col].astype(np.int8)
+                elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
+                    df[col] = df[col].astype(np.int16)
+                elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                    df[col] = df[col].astype(np.int32)
+                elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
+                    df[col] = df[col].astype(np.int64)
+            else:
+                if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
+                    df[col] = df[col].astype(np.float16)
+                elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                    df[col] = df[col].astype(np.float32)
+                else:
+                    df[col] = df[col].astype(np.float64)
+    
+    end_mem = df.memory_usage().sum() / 1024**2
+    print(f'Использование памяти после оптимизации: {end_mem:.2f} MB')
+    print(f'Сокращение: {100 * (start_mem - end_mem) / start_mem:.1f}%')
+    
+    return df
+
 # --- Класс для Target Encoding ---
 class TargetEncoder(BaseEstimator, TransformerMixin):
     def __init__(self, smoothing=20.0):
@@ -172,6 +210,9 @@ def process_data(is_train=True):
     
     # 3. Объединяем все в один большой DataFrame: исходный + отмасштабированные + закодированные
     df_final = pd.concat([df_keys, df_scaled, encoded_data], axis=1)
+
+    print("\nОптимизация использования памяти...")
+    df_final = optimize_memory_usage(df_final)
     
     if is_train:
         output_path = 'data/processed/train.csv'
