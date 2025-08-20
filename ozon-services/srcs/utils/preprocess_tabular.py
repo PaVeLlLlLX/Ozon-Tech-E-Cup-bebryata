@@ -10,6 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.base import BaseEstimator, TransformerMixin
 from Levenshtein import distance as lev_distance
+from preprocess_text import clean_description, clean_name
 
 # --- Класс для Target Encoding ---
 class TargetEncoder(BaseEstimator, TransformerMixin):
@@ -43,8 +44,9 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
 
 # --- Функции для создания признаков ---
 def brand_match_score(row):
-    name = str(row['name_rus']).lower()
-    brand = str(row['brand_name']).lower()
+    # Работа с ОЧИЩЕННЫМИ данными
+    name = str(row['name_rus_cleaned']) # Используем очищенное название
+    brand = str(row['brand_name_cleaned']) # Используем очищенный бренд
     if brand == 'nan' or brand == '__missing__': return -1
     if brand in name: return 1
     try:
@@ -55,6 +57,11 @@ def brand_match_score(row):
 
 def create_features(df):
     """Добавляет в DataFrame новые признаки, созданные на основе EDA."""
+    print("Очистка текстовых описаний...")
+    df['description_cleaned'] = df['description'].apply(clean_description)
+    df['name_rus_cleaned'] = df['name_rus'].apply(clean_description)
+    df['brand_name_cleaned'] = df['brand_name'].apply(clean_name)
+
     print("Создание новых признаков...")
     
     median_price_by_cat = df.groupby('CommercialTypeName4')['PriceDiscounted'].transform('median')
@@ -128,7 +135,11 @@ def process_data(is_train=True):
 
     if is_train:
         print("Обучение препроцессора...")
-        X = df.drop(columns=['resolution', 'description', 'name_rus', 'ItemID'], errors='ignore')
+        cols_to_drop = [
+            'resolution', 'description', 'name_rus', 'ItemID',
+            'description_cleaned', 'name_rus_cleaned', 'brand_name_cleaned'
+        ]
+        X = df.drop(columns=cols_to_drop, errors='ignore')
         y = df['resolution']
         preprocessor.fit(X, y)
         
@@ -140,7 +151,11 @@ def process_data(is_train=True):
         print("Загрузка обученного препроцессора...")
         with open("artifacts/preprocessor.pkl", "rb") as f:
             preprocessor = pickle.load(f)
-        X = df.drop(columns=['description', 'name_rus', 'ItemID'], errors='ignore')
+        cols_to_drop = [
+            'description', 'name_rus', 'ItemID',
+            'description_cleaned', 'name_rus_cleaned', 'brand_name_cleaned'
+        ]
+        X = df.drop(columns=cols_to_drop, errors='ignore')
 
     print("Трансформация данных...")
     X_transformed = preprocessor.transform(X)
