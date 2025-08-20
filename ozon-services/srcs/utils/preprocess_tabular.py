@@ -47,7 +47,7 @@ def brand_match_score(row):
     # Работа с ОЧИЩЕННЫМИ данными
     name = str(row['name_rus_cleaned']) # Используем очищенное название
     brand = str(row['brand_name_cleaned']) # Используем очищенный бренд
-    if brand == 'nan' or brand == '__missing__': return -1
+    if not brand: return -1
     if brand in name: return 1
     try:
         min_dist = min([lev_distance(brand, word) for word in name.split()])
