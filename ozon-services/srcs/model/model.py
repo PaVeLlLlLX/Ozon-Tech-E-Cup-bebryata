@@ -11,7 +11,7 @@ from srcs.model.image_model import ImageNet
 
 
 class MultimodalModel(nn.Module):
-    def __init__(self, tabular_input_dim, text_model_name="sberbank-ai/ruBert-base"):
+    def __init__(self, tabular_input_dim, text_model_name="cointegrated/rubert-tiny2"):
         super().__init__()
         self.tabular_net = TabularNet(tabular_input_dim)
         self.text_net = TextNet(text_model_name)

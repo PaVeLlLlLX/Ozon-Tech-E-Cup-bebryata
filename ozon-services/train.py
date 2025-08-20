@@ -25,37 +25,36 @@ def train_worker(config: DictConfig):
 
     logger.info("Loading and preparing data...")
     raw_df = pd.read_csv(hydra.utils.to_absolute_path(config.data.csv_path))
-    
-    logger.info(f"Loading processed tabular data from: {config.data.processed_tabular_path}")
-    processed_df = pd.read_parquet(
-        hydra.utils.to_absolute_path(config.data.processed_tabular_path)
-    )
+    #raw_df.info()
+    #logger.info(f"Loading processed tabular data from: {config.data.processed_tabular_path}")
+    # processed_df = pd.read_parquet(
+    #     hydra.utils.to_absolute_path(config.data.processed_tabular_path)
+    # )
 
     # Объединяем датафреймы по 'id'
     # Убедимся, что 'id' есть в обоих датафреймах для мержа
-    if 'id' not in raw_df.columns or 'id' not in processed_df.columns:
-        raise ValueError("'id' column must be present in both raw and processed dataframes for merging.")
+    # if 'id' not in raw_df.columns or 'id' not in processed_df.columns:
+    #     raise ValueError("'id' column must be present in both raw and processed dataframes for merging.")
         
     # Сохраняем из сырого датафрейма только id и колонки для NLP/CV
     # Это предотвратит дублирование колонок
-    nlp_cv_cols = config.data.text_cols + [config.data.id_col, 'id'] # Добавляем ItemID и id для связки
-    raw_df_subset = raw_df[nlp_cv_cols].drop_duplicates()
+    # nlp_cv_cols = config.data.text_cols + [config.data.id_col, 'id'] # Добавляем ItemID и id для связки
+    # raw_df_subset = raw_df[nlp_cv_cols].drop_duplicates()
 
     # Объединяем по 'id'. В full_df теперь будут и сырые текстовые, и обработанные табличные данные
-    full_df = pd.merge(raw_df_subset, processed_df, on='id', how='inner')
+    # full_df = pd.merge(raw_df_subset, processed_df, on='id', how='inner')
     
-    logger.info(f"Final merged dataframe shape: {full_df.shape}")
+    # logger.info(f"Final merged dataframe shape: {full_df.shape}")
 
     # ПРЕДОБРАБОТКА ДАННЫХ
     
     train_df, val_df = train_test_split(
-        full_df,
+        raw_df,
         test_size=config.data.val_size,
         random_state=SEED,
-        stratify=full_df[config.data.target_col]
+        stratify=raw_df[config.data.target_col]
     )
     logger.info(f"Data split: {len(train_df)} train, {len(val_df)} validation samples.")
-
     data_loader, valid_data_loader = instantiate(
         config.data_loader, 
         train_df=train_df, 
@@ -69,7 +68,7 @@ def train_worker(config: DictConfig):
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     logger.info(model)
     logger.info(f'Trainable parameters: {sum([p.numel() for p in trainable_params])}')
-
+    
     # pos_weight = torch.tensor([14.1])
     # criterion = instantiate(config.loss, pos_weight=pos_weight)
 

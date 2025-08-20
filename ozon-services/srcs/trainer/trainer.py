@@ -38,7 +38,6 @@ class Trainer(BaseTrainer):
 
             loss = self.criterion(output, target)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
             
             self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
@@ -70,7 +69,9 @@ class Trainer(BaseTrainer):
 
         self.writer.set_step(epoch)
         if epoch == 1 and is_master():
-            self.writer.add_graph(self.model, batch_data)
+            keys_in_order = ['image', 'input_ids', 'attention_mask', 'tabular']
+            input_to_graph = tuple(batch_data[k] for k in keys_in_order)
+            self.writer.add_graph(self.model, input_to_graph)
         for k, v in log.items():
             self.writer.add_scalar(k + '/epoch', v)
         return log
@@ -81,12 +82,12 @@ class Trainer(BaseTrainer):
         with torch.no_grad():
             for batch_idx, (batch_data, target) in enumerate(self.valid_data_loader):
                 batch_data = {k: v.to(self.device) for k, v in batch_data.items()}
-                target = target.to(self.device)
+                target = target.to(self.device).squeeze(1).float() 
 
                 output = self.model(**batch_data)
                 loss = self.criterion(output, target)
 
-                self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx, 'valid')
+                self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx)
                 self.valid_metrics.update('loss', loss.item())
                 
                 metric_output = torch.round(output)
