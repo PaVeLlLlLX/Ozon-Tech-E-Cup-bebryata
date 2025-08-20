@@ -11,6 +11,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.base import BaseEstimator, TransformerMixin
 from Levenshtein import distance as lev_distance
 from preprocess_text import clean_description, clean_name
+from util import delete_rows_without_images
 
 # --- Новая функция для оптимизации памяти ---
 def optimize_memory_usage(df):
@@ -118,13 +119,21 @@ def process_data(is_train=True):
     """Основная функция для обработки данных и сохранения артефактов."""
     
     base_data_path = './data/'
+    images_path = ''
     if is_train:
         print("Обработка TRAIN данных...")
-        df = pd.read_csv(os.path.join(base_data_path, 'train/ml_ozon_сounterfeit_train.csv'))
+        base_data_path += 'train/'
+        images_path = f'{base_data_path}ml_ozon_сounterfeit_train_images'
+        df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_train.csv'))
     else:
         print("Обработка TEST данных...")
-        df = pd.read_csv(os.path.join(base_data_path, 'test/ml_ozon_сounterfeit_test.csv'))
+        base_data_path += 'test/'
+        images_path = f'{base_data_path}ml_ozon_сounterfeit_test_images'
+        df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_test.csv'))
 
+    print("Удаление товаров без изображений...")
+    
+    df = delete_rows_without_images(df, images_path)
 
     # Сохраняем ключевые колонки, которые нужно оставить "как есть"
     key_cols = ['id', 'name_rus', 'ItemID']
@@ -236,5 +245,5 @@ if __name__ == '__main__':
         os.chdir('../../')
         print(f"Рабочая директория изменена на: {os.getcwd()}")
 
-    # process_data(is_train=True)
+    process_data(is_train=True)
     process_data(is_train=False)
