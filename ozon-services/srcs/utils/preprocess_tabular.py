@@ -10,6 +10,46 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.base import BaseEstimator, TransformerMixin
 from Levenshtein import distance as lev_distance
+from preprocess_text import clean_description, clean_name
+from util import delete_rows_without_images
+
+# --- Новая функция для оптимизации памяти ---
+def optimize_memory_usage(df):
+    """
+    Итерируется по всем колонкам DataFrame и изменяет тип данных
+    для уменьшения использования памяти.
+    """
+    start_mem = df.memory_usage().sum() / 1024**2
+    print(f'Использование памяти до оптимизации: {start_mem:.2f} MB')
+
+    for col in df.columns:
+        col_type = df[col].dtype
+
+        if col_type != object and col_type.name != 'category':
+            c_min = df[col].min()
+            c_max = df[col].max()
+            if str(col_type)[:3] == 'int':
+                if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
+                    df[col] = df[col].astype(np.int8)
+                elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
+                    df[col] = df[col].astype(np.int16)
+                elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                    df[col] = df[col].astype(np.int32)
+                elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
+                    df[col] = df[col].astype(np.int64)
+            else:
+                if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
+                    df[col] = df[col].astype(np.float16)
+                elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                    df[col] = df[col].astype(np.float32)
+                else:
+                    df[col] = df[col].astype(np.float64)
+    
+    end_mem = df.memory_usage().sum() / 1024**2
+    print(f'Использование памяти после оптимизации: {end_mem:.2f} MB')
+    print(f'Сокращение: {100 * (start_mem - end_mem) / start_mem:.1f}%')
+    
+    return df
 
 # --- Класс для Target Encoding ---
 class TargetEncoder(BaseEstimator, TransformerMixin):
@@ -43,9 +83,10 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
 
 # --- Функции для создания признаков ---
 def brand_match_score(row):
-    name = str(row['name_rus']).lower()
-    brand = str(row['brand_name']).lower()
-    if brand == 'nan' or brand == '__missing__': return -1
+    # Работа с ОЧИЩЕННЫМИ данными
+    name = str(row['name_rus']) # Используем очищенное название
+    brand = str(row['brand_name']) # Используем очищенный бренд
+    if not brand: return -1
     if brand in name: return 1
     try:
         min_dist = min([lev_distance(brand, word) for word in name.split()])
@@ -55,6 +96,7 @@ def brand_match_score(row):
 
 def create_features(df):
     """Добавляет в DataFrame новые признаки, созданные на основе EDA."""
+
     print("Создание новых признаков...")
     
     median_price_by_cat = df.groupby('CommercialTypeName4')['PriceDiscounted'].transform('median')
@@ -76,20 +118,27 @@ def create_features(df):
 def process_data(is_train=True):
     """Основная функция для обработки данных и сохранения артефактов."""
     
-    base_data_path = 'data/'
+    base_data_path = './data/'
+    images_path = ''
     if is_train:
         print("Обработка TRAIN данных...")
+        base_data_path += 'train/'
+        images_path = f'{base_data_path}ml_ozon_сounterfeit_train_images'
         df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_train.csv'))
     else:
         print("Обработка TEST данных...")
+        base_data_path += 'test/'
+        images_path = f'{base_data_path}ml_ozon_сounterfeit_test_images'
         df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_test.csv'))
 
+    print("Удаление товаров без изображений...")
+    
+    df = delete_rows_without_images(df, images_path)
 
     # Сохраняем ключевые колонки, которые нужно оставить "как есть"
     key_cols = ['id', 'name_rus', 'ItemID']
     if is_train:
         key_cols.append('resolution')
-    df_keys = df[key_cols].copy()
 
     print("Явная обработка пропусков...")
     
@@ -97,8 +146,6 @@ def process_data(is_train=True):
     df['brand_name'] = df['brand_name'].fillna('__MISSING__')
     df['CommercialTypeName4'] = df['CommercialTypeName4'].fillna('__MISSING__')
     df['description'] = df['description'].fillna('__MISSING__')
-
-    df_keys['description'] = df['description']
 
     # Числовые, где NaN означает 0 (рейтинги, комментарии)
     rating_cols = [col for col in df.columns if 'rating' in col or 'count' in col or 'Count' in col]
@@ -108,7 +155,16 @@ def process_data(is_train=True):
     activity_cols = [col for col in df.columns if 'Gmv' in col or 'Exemplar' in col or 'Order' in col]
     df[activity_cols] = df[activity_cols].fillna(0)
 
+    print("Очистка текстовых описаний...")
+
+    df['description'] = df['description'].apply(clean_description)
+    df['name_rus'] = df['name_rus'].apply(clean_description)
+    df['brand_name'] = df['brand_name'].apply(clean_name)
+
     df = create_features(df)
+
+    df_keys = df[key_cols].copy()
+    df_keys['description'] = df['description']
     
     target_encode_cols = ['brand_name', 'SellerID', 'CommercialTypeName4']
     
@@ -157,6 +213,9 @@ def process_data(is_train=True):
     
     # 3. Объединяем все в один большой DataFrame: исходный + отмасштабированные + закодированные
     df_final = pd.concat([df_keys, df_scaled, encoded_data], axis=1)
+
+    print("\nОптимизация использования памяти...")
+    df_final = optimize_memory_usage(df_final)
     
     if is_train:
         output_path = 'data/processed/train.csv'

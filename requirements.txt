@@ -14,3 +14,5 @@ protobuf==3.20.3
 torchmetrics==1.6.1
 python-Levenshtein==0.25.1
 pyarrow==17.0.0
+pymorphy2
+nltk
