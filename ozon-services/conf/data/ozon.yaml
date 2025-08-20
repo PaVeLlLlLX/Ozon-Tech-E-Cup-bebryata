@@ -1,6 +1,7 @@
 # @package _global_
 data:
   csv_path: "../data/train/ml_ozon_сounterfeit_train.csv"
+  processed_tabular_path: "../data/processed/train.parquet"
   images_dir: "../data/train/ml_ozon_сounterfeit_train_images/"
   
   id_col: "ItemID"
@@ -13,6 +14,7 @@ data:
     - "CommercialTypeName4"
 
   tabular_cols:
+    # Исходные числовые признаки (уже отмасштабированные)
     - rating_1_count
     - rating_2_count
     - rating_3_count
@@ -50,7 +52,22 @@ data:
     - ItemVarietyCount
     - ItemAvailableCount
     - seller_time_alive
-    - SellerID
+    # Новые признаки, которые мы сгенерировали
+    - price_vs_cat_median
+    - name_len
+    - name_word_count
+    - has_копия
+    - has_реплика
+    - has_аналог
+    - has_совместимый
+    - brand_in_name_score
+    - has_ratings
+    - has_brand
+    - has_fake_returns
+    # Признаки после Target Encoding
+    - brand_name_te
+    - SellerID_te
+    - CommercialTypeName4_te
 
   val_size: 0.1
 
