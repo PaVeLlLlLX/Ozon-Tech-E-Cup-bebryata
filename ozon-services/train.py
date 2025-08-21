@@ -4,6 +4,7 @@ import torch
 import torchvision
 import pandas as pd
 from omegaconf import DictConfig, OmegaConf
+from srcs.model.image_model import ImageNet
 from pathlib import Path
 from srcs.trainer import Trainer
 from srcs.utils import instantiate, get_logger, is_master
@@ -78,12 +79,54 @@ def train_worker(config: DictConfig):
     optimizer = instantiate(config.optimizer, model.parameters())
     lr_scheduler = instantiate(config.lr_scheduler, optimizer)
     
-    trainer = Trainer(model, config.trainer.epochs, criterion, metrics, optimizer,
+    optimizer = torch.optim.AdamW([
+    {"params": model.parameters()}
+    ], lr=1e-5, weight_decay=0.0001)
+
+    trainer = Trainer(model, 10, criterion, metrics, optimizer,
                       config=config,
                       data_loader=data_loader,
                       valid_data_loader=valid_data_loader,
-                      lr_scheduler=lr_scheduler)
+                      lr_scheduler=lr_scheduler
+                      )
     trainer.train()
+    
+    # for name, param in model.image_net.named_parameters():
+    #     if 'features.6' in name:
+    #         param.requires_grad = True
+    
+    # optimizer = torch.optim.AdamW([
+    # {"params": model.classifier.parameters()},
+    # {"params": model.image_net.model.features[6].parameters(), "lr": 1e-5}
+    # ], lr=1e-4, weight_decay=0.0001, betas = [0.9, 0.999], eps = 1e-8)
+    
+    # trainer = Trainer(model, 7, criterion, metrics, optimizer,
+    #                    config=config,
+    #                   data_loader=data_loader,
+    #                   valid_data_loader=valid_data_loader,
+    #                   lr_scheduler=lr_scheduler
+    #                   )
+    
+    # trainer.train()
+
+    # for name, param in model.image_net.named_parameters():
+    #     if 'features.5' in name:
+    #         param.requires_grad = True
+    
+    # optimizer = torch.optim.AdamW([
+    # {"params": model.classifier.parameters()},
+    # {"params": model.image_net.model.features[5].parameters(), "lr": 1e-6},
+    # {"params": model.image_net.model.features[6].parameters(), "lr": 1e-6}
+    # ], lr=1e-5, weight_decay=0.00001, betas = [0.9, 0.999], eps = 1e-8)
+    
+    # trainer = Trainer(model, 10, criterion, metrics, optimizer,
+    #                    config=config,
+    #                    data_loader=data_loader,
+    #                   valid_data_loader=valid_data_loader,
+    #                    lr_scheduler=lr_scheduler
+    #                    )
+    
+    # trainer.train()
 
 def init_worker(working_dir, config):
     # initialize training config

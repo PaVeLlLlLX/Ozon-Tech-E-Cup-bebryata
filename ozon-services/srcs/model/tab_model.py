@@ -20,6 +20,7 @@ class TabularNet(nn.Module):
             nn.BatchNorm1d(256),
             nn.Linear(256, 128),
             nn.ReLU(),
+            nn.Dropout(0.5),
             nn.BatchNorm1d(128),
             nn.Linear(128, output_dim)
         )

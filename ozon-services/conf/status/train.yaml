@@ -2,10 +2,10 @@
 status: train
 
 trainer:
-  epochs: 10
+  epochs: 30
   logging_step: 100
 
-  monitor: min loss/valid
+  monitor: max f1/valid
   save_topk: 7
   early_stop: 10
 

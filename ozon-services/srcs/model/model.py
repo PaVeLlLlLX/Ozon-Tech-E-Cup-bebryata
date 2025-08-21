@@ -18,12 +18,15 @@ class MultimodalModel(nn.Module):
         self.image_net = ImageNet()
         
         self.classifier = nn.Sequential(
-            nn.Linear(64 + 312 + 512, 256),
+            nn.Linear(64 + 312 + 1280, 512),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(512, 256),
             nn.ReLU(),
             nn.Dropout(0.5),
             nn.Linear(256, 1),
         )
-    
+        
     def forward(self, image, input_ids, attention_mask, tabular):
         tab_out = self.tabular_net(tabular)
         text_out = self.text_net(input_ids, attention_mask)
