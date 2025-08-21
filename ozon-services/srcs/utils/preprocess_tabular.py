@@ -113,6 +113,7 @@ def create_features(df):
     df['has_ratings'] = df['rating_1_count'].notna().astype(int)
     df['has_brand'] = df['brand_name'].notna().astype(int)
     df['has_fake_returns'] = (df['item_count_fake_returns90'] > 0).astype(int)
+    df['has_photo'] = (df['photos_published_count'] > 0).astype(int)
     return df
 
 def process_data(is_train=True):
@@ -131,9 +132,10 @@ def process_data(is_train=True):
         images_path = f'{base_data_path}ml_ozon_сounterfeit_test_images'
         df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_test.csv'))
 
-    print("Удаление товаров без изображений...")
+    # Не удаляем
+    # print("Удаление товаров без изображений...")
     
-    df = delete_rows_without_images(df, images_path)
+    # df = delete_rows_without_images(df, images_path)
 
     # Сохраняем ключевые колонки, которые нужно оставить "как есть"
     key_cols = ['id', 'name_rus', 'ItemID']
