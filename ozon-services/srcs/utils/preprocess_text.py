@@ -1,6 +1,7 @@
 import re
 import pymorphy2
 from nltk.corpus import stopwords
+from bs4 import BeautifulSoup
 
 morph = pymorphy2.MorphAnalyzer()
 # стоп-слова
@@ -40,15 +41,16 @@ def clean_description(text: str) -> str:
     if not isinstance(text, str):
         return ""
 
-    # 1. Удаляем HTML-теги
-    text = re.sub(r'<[^>]+>', ' ', text)
-    text = re.sub(r'&[a-zA-Z0-9#]+;', ' ', text)
+    # 1. Используем BeautifulSoup для надежного удаления HTML
+    #    separator=' ' гарантирует, что слова не склеятся.
+    text = BeautifulSoup(text, "html.parser").get_text(separator=' ')
 
     # 2. Приводим к нижнему регистру
     text = text.lower()
 
-    # 3. Оставляем буквы (ru/en), цифры и пробелы
-    text = re.sub(r'[^a-zа-яё0-9\s]', ' ', text)
+    # 3. Удаляем все, что не является буквами, цифрами или стандартными знаками препинания.
+    #    Оставим дефисы и точки, они могут быть важны.
+    text = re.sub(r'[^a-zа-яё0-9\s\.\-]', ' ', text)
     
     # 4. Разбиваем на слова (токенизация) и убираем лишние пробелы
     words = text.split()
