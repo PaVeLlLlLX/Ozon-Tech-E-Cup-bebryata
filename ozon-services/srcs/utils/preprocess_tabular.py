@@ -158,8 +158,13 @@ def process_data(is_train=True):
     print("Очистка текстовых описаний...")
 
     df['description'] = df['description'].apply(clean_description)
+    df.loc[df['description'] == '', 'description'] = '__MISSING__'
     df['name_rus'] = df['name_rus'].apply(clean_description)
+    df.loc[df['name_rus'] == '', 'name_rus'] = '__MISSING__'
     df['brand_name'] = df['brand_name'].apply(clean_name)
+    df.loc[df['brand_name'] == '', 'brand_name'] = '__MISSING__'
+    df['CommercialTypeName4'] = df['CommercialTypeName4'].apply(clean_name)
+    df.loc[df['CommercialTypeName4'] == '', 'CommercialTypeName4'] = '__MISSING__'
 
     df = create_features(df)
 
