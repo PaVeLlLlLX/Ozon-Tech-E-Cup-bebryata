@@ -1,10 +1,17 @@
 import optuna
 import joblib
 import pandas as pd
+import torch
 from pathlib import Path
 from catboost import CatBoostClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score
+from pytorch_tabnet.tab_model import TabNetClassifier
+from pytorch_tabnet.metrics import Metric
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+import torch.nn as nn
+
 
 class CatBoostTabularModel:
     def __init__(self, artifacts_dir="artifacts", seed=42, n_trials=30):
@@ -82,16 +89,6 @@ class CatBoostTabularModel:
         X = df.drop(columns=[id_col], errors="ignore")
         return self.model.predict_proba(X)[:, 1]
 
-'''
-import os
-from typing import List
-import cv2
-import numpy as np
-import torch
-import torch.nn as nn
-import torchvision
-from transformers import BertModel
-from torchvision.models import resnet18
 
 class TabularNet(nn.Module):
     def __init__(self, input_dim, hidden_dim=128, output_dim=64):
@@ -114,4 +111,97 @@ class TabularNet(nn.Module):
         x = self.fc(x)
         #print("Tabular features", x)
         return x
-'''
+    
+
+class TabNetModel(nn.Module):
+    def __init__(self, input_dim, output_dim=64, n_d=8, n_a=8, n_steps=3, 
+                 gamma=1.3, n_independent=2, n_shared=2, momentum=0.02):
+        super().__init__()
+        
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        
+        self.tabnet_params = {
+            'n_d': n_d,                    # Размерность prediction layer
+            'n_a': n_a,                    # Размерность attention layer
+            'n_steps': n_steps,            # Количество шагов внимания
+            'gamma': gamma,                # Коэффициент масштабирования
+            'n_independent': n_independent, # Независимые GLU слои
+            'n_shared': n_shared,          # Общие GLU слои
+            'momentum': momentum,          # Momentum для batch norm
+            'mask_type': 'sparsemax',      # Тип маски
+        }
+        
+        self.tabnet = TabNetClassifier(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            **self.tabnet_params
+        )
+        
+        self.embedding_projection = nn.Sequential(
+            nn.Linear(n_d, 128),
+            nn.ReLU(),
+            nn.LayerNorm(128),
+            nn.Linear(128, output_dim)
+        )
+        self.is_fitted = False
+        
+    def fit(self, X_train, y_train, X_val=None, y_val=None, 
+            max_epochs=100, patience=10, batch_size=1024):
+        if X_val is None or y_val is None:
+            X_train, X_val, y_train, y_val = train_test_split(
+                X_train, y_train, test_size=0.2, random_state=42
+            )
+        
+        self.tabnet.fit(
+            X_train=X_train, y_train=y_train,
+            eval_set=[(X_val, y_val)],
+            max_epochs=max_epochs,
+            patience=patience,
+            batch_size=batch_size,
+            virtual_batch_size=128,
+            eval_metric=['auc']
+        )
+        
+        self.is_fitted = True
+        return self
+    
+    def get_embeddings(self, x):
+        if not self.is_fitted:
+            raise RuntimeError("TabNet must be fitted before getting embeddings")
+        
+        if isinstance(x, torch.Tensor):
+            x_np = x.detach().cpu().numpy()
+        else:
+            x_np = x
+            
+        self.tabnet.network.eval()
+        
+        with torch.no_grad():
+            x_tensor = torch.tensor(x_np, dtype=torch.float32)
+            
+            output, M_loss = self.tabnet.network(x_tensor)
+            
+            embeddings = output[0]
+            
+            if isinstance(embeddings, torch.Tensor):
+                embeddings = self.embedding_projection(embeddings)
+            else:
+                embeddings = self.embedding_projection(torch.tensor(embeddings))
+        
+        return embeddings
+    
+    def forward(self, x):
+        return self.get_embeddings(x)
+    
+    def get_attention_masks(self, x):
+        if not self.is_fitted:
+            raise RuntimeError("TabNet must be fitted before getting attention masks")
+        
+        if isinstance(x, torch.Tensor):
+            x_np = x.detach().cpu().numpy()
+        else:
+            x_np = x
+            
+        explanations = self.tabnet.explain(x_np)
+        return explanations

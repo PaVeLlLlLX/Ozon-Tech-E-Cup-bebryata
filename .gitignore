@@ -151,3 +151,6 @@ tensorboard/
 
 /data/
 /run/
+/ozon-services/catboost_info/
+/ozon-services/artifacts/
+*.parquet
