@@ -47,7 +47,7 @@ class Trainer(BaseTrainer):
                 self.logger.info(f'Train Epoch: {epoch} {self._progress(batch_idx)} Loss: {loss.item():.6f}')
                 
                 with torch.no_grad():
-                    metric_output = torch.round(output) 
+                    metric_output = torch.round(torch.sigmoid(output)) 
                     for met in self.metric_ftns:
                         self.train_metrics.update(met.__name__, met(metric_output.cpu(), target.cpu()))
 

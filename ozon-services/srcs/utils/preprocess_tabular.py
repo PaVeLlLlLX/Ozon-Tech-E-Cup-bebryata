@@ -183,8 +183,8 @@ def process_data(is_train=True):
     df['SellerID'] = df['SellerID'].astype(str)
     
     if is_train:
-        print("Обучение препроцессоров...")
-        X = df.drop(columns=['resolution'], errors='ignore')
+        print("Обучение препроцессора...")
+        X = df.drop(columns=cols_to_drop, errors='ignore')
         y = df['resolution']
         
         # Обучаем Scaler
@@ -206,7 +206,7 @@ def process_data(is_train=True):
         with open("artifacts/preprocessor.pkl", "rb") as f:
             preprocessor = pickle.load(f)
         scaler = preprocessor['scaler']
-        target_encoder = preprocessor['target_encoder']
+        target_encoder = preprocessot['targer_encoder']
         X = df # Для теста X это весь df
 
     print("Трансформация данных и добавление новых признаков...")

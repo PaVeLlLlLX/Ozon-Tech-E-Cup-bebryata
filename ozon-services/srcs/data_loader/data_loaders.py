@@ -1,16 +1,18 @@
 import cv2
 import numpy as np
 import torch
-import re
+import os
 import albumentations as A
 import matplotlib.pyplot as plt
 import pandas as pd
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from albumentations.pytorch import ToTensorV2
+from torch.utils.data.dataloader import default_collate
 from pathlib import Path
 from typing import List
 from PIL import Image
+os.environ['OPENCV_LOG_LEVEL'] = 'ERROR'
 
 
 transform_train = A.Compose([
@@ -48,7 +50,7 @@ transform_val = A.Compose([
 ])
 
 class OzonDataset(Dataset):
-    def __init__(self, df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, transform=None):
+    def __init__(self, df, images_dir, tokenizer, tabular_cols, id_col, text_cols, target_col = None, val_size = None, csv_path = None, transform=None):
         self.df = df
         self.images_dir = Path(images_dir)
         self.tokenizer = tokenizer
@@ -58,6 +60,10 @@ class OzonDataset(Dataset):
         self.id_col = id_col
         self.text_cols = text_cols
 
+        self.has_labels = self.target_col and self.target_col in self.df.columns
+        
+        self.ids = self.df.index.values
+
         self.image_paths = self.df[self.id_col].apply(lambda x: self.images_dir / f"{x}.png").tolist()
         
         self.texts = self.df[self.text_cols].apply(
@@ -66,7 +72,6 @@ class OzonDataset(Dataset):
 
         self.tabular_features = self.df # для catboost
         #self.tabular_features = torch.FloatTensor(self.df[self.tabular_cols].values) # для mlp
-        self.labels = torch.FloatTensor(self.df[self.target_col].values)
 
     def __len__(self):
         return len(self.df)
@@ -75,10 +80,17 @@ class OzonDataset(Dataset):
         image_path = self.image_paths[idx]
         try:
             image = cv2.imread(str(image_path))
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if image is None:
+                image = np.zeros((384, 384, 3), dtype=np.uint8)
+            else:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         except Exception as e:
-            print(f"Error loading image {image_path}: {e}")
+            #print(f"Error loading image {image_path}: {e}")
             image = np.zeros((384, 384, 3), dtype=np.uint8)
+
+        unique_id = self.ids[idx]
+        
+        row = self.df.loc[unique_id]
 
         if self.transform:
             image = self.transform(image=image)['image']
@@ -92,15 +104,31 @@ class OzonDataset(Dataset):
             return_tensors="pt"
         )
 
-        tabular = self.tabular_features[idx]
-        label = self.labels[idx].unsqueeze(0)
+        # tabular = self.tabular_features.iloc[idx]
+        if self.has_labels:
+            label = torch.tensor(row[self.target_col], dtype=torch.float)
+        else:
+            label = torch.tensor(-1.0)
         
         return {
             "image": image,
             "input_ids": tokenized_text["input_ids"].squeeze(0),
             "attention_mask": tokenized_text["attention_mask"].squeeze(0),
-            "tabular": tabular,
+            # self.id_col: self.df[self.id_col].iloc[idx]
+            "id": unique_id
         }, label
+
+
+def collate_fn(batch):
+        batch_data_list = [item[0] for item in batch]
+        labels = [item[1] for item in batch]
+
+        tabular_batch = pd.concat([d.pop('tabular') for d in batch_data_list], axis=1).transpose()
+
+        collated_batch = default_collate(batch_data_list)
+        collated_batch['tabular'] = tabular_batch
+        
+        return collated_batch, default_collate(labels)
 
 
 def get_dataloaders(train_df, val_df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, batch_size, num_workers=None):
@@ -135,7 +163,6 @@ def get_test_dataloader(test_df, images_dir, tokenizer, tabular_cols, target_col
         images_dir=images_dir,
         tokenizer=tokenizer,
         tabular_cols=tabular_cols,
-        target_col=target_col,
         id_col=id_col,
         text_cols=text_cols,
         transform=transform_val
