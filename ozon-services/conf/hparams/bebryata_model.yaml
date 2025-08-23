@@ -1,7 +1,7 @@
 # @package _global_
 n_cpu: 16
-batch_size: 64
-learning_rate: 0.00001
+batch_size: 32
+learning_rate: 0.00002
 weight_decay: 0.0001
 
 scheduler_step_size: 50

@@ -22,12 +22,14 @@ class ImageNet(nn.Module):
 
 
         # num_features = self.model.classifier[1].in_features
-
+        self.proj = nn.Linear(1280, 512)
         self.model.classifier = nn.Identity()
 
         for param in self.model.classifier.parameters():
             param.requires_grad =True
     def forward(self, x):
-        x = self.model(x)  #[batch_size, 512]
+        x = self.model(x)  #[batch_size, 1280]
         #print("Image features", x)
+        x = self.proj(x)
         return x
+    

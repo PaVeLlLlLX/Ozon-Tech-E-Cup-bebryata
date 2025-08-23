@@ -20,7 +20,16 @@ transform_train = A.Compose([
     A.HorizontalFlip(p=0.5),
     A.CoarseDropout(max_holes=12, max_height=40, max_width=40, min_holes=8, fill_value=0, p=0.7),
     A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.8),
+    A.Resize(384, 384), 
+    A.HorizontalFlip(p=0.5),
+    A.CoarseDropout(max_holes=12, max_height=40, max_width=40, min_holes=8, fill_value=0, p=0.7),
+    A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.8),
     A.OneOf([
+        A.GaussianBlur(blur_limit=(3, 7), p=0.5),
+        A.MotionBlur(blur_limit=(3, 7), p=0.5),
+    ], p=0.4),
+    A.GaussNoise(var_limit=(10.0, 50.0), p=0.4),
+    A.RandomBrightnessContrast(p=0.5),
         A.GaussianBlur(blur_limit=(3, 7), p=0.5),
         A.MotionBlur(blur_limit=(3, 7), p=0.5),
     ], p=0.4),
@@ -106,18 +115,6 @@ class OzonDataset(Dataset):
         }, label
 
 
-def collate_fn(batch):
-        batch_data_list = [item[0] for item in batch]
-        labels = [item[1] for item in batch]
-
-        tabular_batch = pd.concat([d.pop('tabular') for d in batch_data_list], axis=1).transpose()
-
-        collated_batch = default_collate(batch_data_list)
-        collated_batch['tabular'] = tabular_batch
-        
-        return collated_batch, default_collate(labels)
-
-
 def get_dataloaders(train_df, val_df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, batch_size, num_workers=None):
     train_dataset = OzonDataset(
         df=train_df,
@@ -141,9 +138,12 @@ def get_dataloaders(train_df, val_df, images_dir, tokenizer, tabular_cols, targe
     )
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=16, pin_memory=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=16, pin_memory=True)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=16, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=16, pin_memory=True)
     return train_loader, val_loader
 
 
+def get_test_dataloader(test_df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, batch_size, num_workers=None):
 def get_test_dataloader(test_df, images_dir, tokenizer, tabular_cols, target_col, id_col, text_cols, batch_size, num_workers=None):
     test_dataset = OzonDataset(
         df=test_df,
@@ -154,6 +154,7 @@ def get_test_dataloader(test_df, images_dir, tokenizer, tabular_cols, target_col
         text_cols=text_cols,
         transform=transform_val
     )
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=16)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=16)
     return test_loader
 

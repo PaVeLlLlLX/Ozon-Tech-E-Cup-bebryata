@@ -2,9 +2,11 @@
 status: train
 
 trainer:
-  epochs: 30
+  epochs: 10
+  # accumulation_steps: 4
   logging_step: 100
 
+  monitor: max f1/valid
   monitor: max f1/valid
   save_topk: 7
   early_stop: 10

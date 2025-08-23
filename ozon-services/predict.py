@@ -3,6 +3,7 @@ import torch
 import hydra
 import pandas as pd
 import numpy as np
+import json
 from omegaconf import DictConfig
 from tqdm import tqdm
 from srcs.utils import instantiate
@@ -32,7 +33,7 @@ def predict(config: DictConfig) -> None:
     logger.info(f"Model moved to {device} and set to evaluation mode.")
 
     logger.info(f"Loading test data from: {config.data_test.csv_path}")
-    test_df_path = hydra.utils.to_absolute_path(config.data_test.csv_path)
+    test_df_path = "../data/processed/test.csv"
     try:
         test_df = pd.read_csv(test_df_path)
     except FileNotFoundError:
@@ -40,34 +41,41 @@ def predict(config: DictConfig) -> None:
         logger.error("Please run the preprocessing script for test data first!")
         return
 
-    if config.data.target_col not in test_df.columns:
-        logger.warning(f"Target column '{config.data.target_col}' not found in test data. Creating a dummy column.")
-        test_df[config.data.target_col] = 0
+    if 'id' not in test_df.columns:
+        logger.error("FATAL: 'id' column not found in the processed test.csv.")
+        logger.error("Please ensure your preprocessing script saves the 'id' column.")
+        return
+    
+    dataset_df = test_df.copy()
+    if config.data.target_col not in dataset_df.columns:
+        logger.warning(f"Target column '{config.data.target_col}' not found. Creating a dummy column.")
+        dataset_df[config.data.target_col] = 0
 
-    test_data_loader = instantiate(config.test_data_loader, test_df=test_df)
+    test_data_loader = instantiate(config.test_data_loader, test_df=dataset_df)
     logger.info(f"Test data loader created with {len(test_data_loader.dataset)} samples.")
 
-    predictions = []
-    item_ids = []
+    # --- 3. Процесс предсказания ---
+    all_predictions = []
 
     with torch.no_grad():
         for batch_data, _ in tqdm(test_data_loader, desc="Predicting"):
-            batch_item_ids = batch_data['tabular'][:, 0].cpu().numpy().astype(int)
-            item_ids.extend(batch_item_ids)
-
             batch_data = {k: v.to(device) for k, v in batch_data.items()}
-            
             output_logits, _ = model(**batch_data)
-            
-            batch_preds = torch.round(torch.sigmoid(output_logits)).cpu().numpy()
-            predictions.extend(batch_preds)
+            batch_preds = torch.round(torch.sigmoid(output_logits)).cpu().numpy().astype(int)
+            all_predictions.extend(batch_preds)
 
-    logger.info(f"Prediction complete. Total predictions: {len(predictions)}")
+    logger.info(f"Prediction complete. Total predictions: {len(all_predictions)}")
 
-    submission_df = pd.DataFrame({
-        'id': item_ids,
-        'prediction': predictions
-    })
+    # --- 4. Формирование и сохранение submission-файла ---
+    if len(all_predictions) != len(test_df):
+        logger.error(f"Mismatch in lengths: {len(all_predictions)} predictions vs {len(test_df)} rows in test_df.")
+        return
+
+    # Добавляем предсказания в исходный DataFrame
+    test_df['prediction'] = all_predictions
+    
+    # ИСПРАВЛЕНИЕ: Выбираем колонку 'id', а не 'ItemID'
+    submission_df = test_df[['id', 'prediction']].copy()
 
 
     submission_path = 'multimodal_submission.csv'
@@ -79,5 +87,5 @@ def predict(config: DictConfig) -> None:
 def main(config: DictConfig) -> None:
     predict(config)
 
-if __name__ == 'main':
+if __name__ == '__main__':
     main()

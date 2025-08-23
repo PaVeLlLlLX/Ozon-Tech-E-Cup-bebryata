@@ -4,7 +4,7 @@ import torch.distributed as dist
 from srcs.trainer.base import BaseTrainer
 from srcs.utils import inf_loop
 from srcs.logger import BatchMetrics
-
+import logging
 
 class Trainer(BaseTrainer):
     def __init__(self, model, epochs, criterion, metric_ftns, optimizer, config, data_loader,
@@ -34,9 +34,11 @@ class Trainer(BaseTrainer):
             target = target.to(self.device).squeeze(1).float() 
 
             self.optimizer.zero_grad()
-            output = self.model(**batch_data)
+            output_logits, tab_m_loss = self.model(**batch_data)
 
-            loss = self.criterion(output, target)
+            lambda_sparse = 1e-3 
+            loss = self.criterion(output_logits, target) + lambda_sparse * tab_m_loss.mean()
+
             loss.backward()
             self.optimizer.step()
             
@@ -47,8 +49,9 @@ class Trainer(BaseTrainer):
                 self.logger.info(f'Train Epoch: {epoch} {self._progress(batch_idx)} Loss: {loss.item():.6f}')
                 
                 with torch.no_grad():
-                    metric_output = torch.round(torch.sigmoid(output)) 
+                    metric_output = torch.round(torch.sigmoid(output_logits)) 
                     for met in self.metric_ftns:
+                        # ИСПРАВЛЕНО: met.name -> met.__name__
                         self.train_metrics.update(met.__name__, met(metric_output.cpu(), target.cpu()))
 
             if batch_idx == self.len_epoch:
@@ -68,33 +71,40 @@ class Trainer(BaseTrainer):
                 self.lr_scheduler.step()
 
         self.writer.set_step(epoch)
-        if epoch == 1 and is_master():
-            keys_in_order = ['image', 'input_ids', 'attention_mask', 'tabular']
-            input_to_graph = tuple(batch_data[k] for k in keys_in_order)
-            self.writer.add_graph(self.model, input_to_graph)
+        # if epoch == 1 and is_master():
+        #     keys_in_order = ['image', 'input_ids', 'attention_mask', 'tabular']
+        #     input_to_graph = tuple(batch_data[k] for k in keys_in_order)
+        #     self.writer.add_graph(self.model, input_to_graph)
         for k, v in log.items():
             self.writer.add_scalar(k + '/epoch', v)
         return log
 
     def _valid_epoch(self, epoch):
-        self.model.eval()
-        self.valid_metrics.reset()
-        with torch.no_grad():
-            for batch_idx, (batch_data, target) in enumerate(self.valid_data_loader):
-                batch_data = {k: v.to(self.device) for k, v in batch_data.items()}
-                target = target.to(self.device).squeeze(1).float() 
+        try:
+            self.model.eval()
+            self.valid_metrics.reset()
+            with torch.no_grad():
+                for batch_idx, (batch_data, target) in enumerate(self.valid_data_loader):
+                    batch_data = {k: v.to(self.device) for k, v in batch_data.items()}
+                    target = target.to(self.device).squeeze(1).float() 
 
-                output = self.model(**batch_data)
-                loss = self.criterion(output, target)
+                    # ИСПРАВЛЕНО: Распаковываем вывод модели, как в _train_epoch
+                    output_logits, tab_m_loss = self.model(**batch_data)
+                    
+                    # ИСПРАВЛЕНО: Считаем основной лосс без m_loss от TabNet на валидации
+                    loss = self.criterion(output_logits, target)
 
-                self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx)
-                self.valid_metrics.update('loss', loss.item())
-                
-                metric_output = torch.round(torch.sigmoid(output))
-                for met in self.metric_ftns:
-                    self.valid_metrics.update(met.__name__, met(metric_output.cpu(), target.cpu()))
+                    self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx)
+                    self.valid_metrics.update('loss', loss.item())
+                    
+                    metric_output = torch.round(torch.sigmoid(output_logits))
+                    for met in self.metric_ftns:
+                        self.valid_metrics.update(met.__name__, met(metric_output.cpu(), target.cpu()))
 
-        return self.valid_metrics.result()
+            return self.valid_metrics.result()
+        except Exception as e:
+            logging.error(msg=f"{e}")
+    
 
     def _progress(self, batch_idx):
         base = '[{}/{} ({:.0f}%)]'

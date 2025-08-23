@@ -18,3 +18,7 @@ pymorphy2
 nltk==3.9.1
 catboost==1.2.8
 optuna
+beautifulsoup4
+pymorphy2
+nltk
+pytorch-tabnet

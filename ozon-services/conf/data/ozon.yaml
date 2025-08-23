@@ -4,7 +4,6 @@ data:
   #processed_tabular_path: "../data/processed/train.parquet"
   images_dir: "../data/train/ml_ozon_сounterfeit_train_images/"
   test_images_dir: "../data/test/ml_ozon_сounterfeit_test_images/"
-  
   id_col: "ItemID"
   target_col: "resolution"
 
@@ -193,8 +192,8 @@ data_test:
 
 tokenizer:
   _target_: transformers.AutoTokenizer.from_pretrained
-  pretrained_model_name_or_path: "cointegrated/rubert-tiny2"
-  model_name: "cointegrated/rubert-tiny2"
+  pretrained_model_name_or_path: "sberbank-ai/ruBERT-base"
+  model_name: "sberbank-ai/ruBERT-base"
 
 data_loader:
   _target_: srcs.data_loader.data_loaders.get_dataloaders
