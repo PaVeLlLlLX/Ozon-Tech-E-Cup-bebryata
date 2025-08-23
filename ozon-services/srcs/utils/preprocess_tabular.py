@@ -193,6 +193,41 @@ def generate_all_features(df):
     print(f"Создано {len(new_feature_cols)} новых признаков.")
     return df
 
+# --- Новая функция для создания временных признаков ---
+def create_ts_features(df):
+    """
+    Создает признаки, основанные на временной динамике поведения продавцов.
+    ВАЖНО: предполагает, что df отсортирован по времени.
+    """
+    print("Создание временных (поведенческих) признаков...")
+    
+    # Сортируем на всякий случай, хотя трейн уже должен быть отсортирован
+    df = df.sort_index()
+
+    # Считаем исторические данные для каждого продавца
+    # Используем .shift(1), чтобы смотреть только в "прошлое" и избежать утечки
+    
+    # 1. Сколько товаров продавец уже выставил на продажу?
+    df['seller_items_listed_expanding'] = df.groupby('SellerID').cumcount()
+
+    # 2. Какова средняя цена предыдущих товаров этого продавца?
+    seller_mean_price = df.groupby('SellerID')['PriceDiscounted'].expanding().mean().reset_index(level=0, drop=True).shift(1)
+    df['seller_avg_price_expanding'] = seller_mean_price
+    df['seller_avg_price_expanding'].fillna(0, inplace=True) # Заполняем NaN для первого товара продавца
+
+    # 3. Насколько цена текущего товара отклоняется от среднего у этого продавца?
+    df['price_deviation_from_seller_mean'] = (df['PriceDiscounted'] - df['seller_avg_price_expanding']) / (df['seller_avg_price_expanding'] + 1)
+    df['price_deviation_from_seller_mean'].fillna(0, inplace=True)
+
+    # 4. Какова историческая доля контрафакта у этого продавца? (Динамический Target Encoding!)
+    # Этот признак можно создать только для трейна
+    if 'resolution' in df.columns:
+        seller_fraud_rate = df.groupby('SellerID')['resolution'].expanding().mean().reset_index(level=0, drop=True).shift(1)
+        df['seller_fraud_rate_expanding'] = seller_fraud_rate
+        df['seller_fraud_rate_expanding'].fillna(-1, inplace=True) # -1 для новых продавцов
+
+    return df
+
 
 def process_data(is_train=True):
     """Основная функция для обработки данных и сохранения артефактов."""
@@ -233,6 +268,9 @@ def process_data(is_train=True):
     # [ИЗМЕНЕНО] Вызываем новую единую функцию для генерации всех признаков
     df = generate_all_features(df)
     
+    # Вызываем функцию для создания временных признаков
+    df = create_ts_features(df)
+
     # Удаляем временную колонку
     df = df.drop(columns=['raw_name_rus'])
 
