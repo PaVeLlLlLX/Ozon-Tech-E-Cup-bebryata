@@ -1,3 +1,4 @@
+import os
 import yaml
 import logging
 from functools import partial, update_wrapper
@@ -10,6 +11,7 @@ import torch
 import torch.distributed as dist
 from omegaconf import OmegaConf
 from tqdm import tqdm
+import pandas as pd
 
 
 def is_master():
@@ -99,3 +101,48 @@ def get_logits(model, dataloader):
     logits = logits.cpu()
     targets = targets.cpu()
     return logits, targets
+
+def delete_rows_without_images(df: pd.DataFrame, images_path: str, item_id_col: str = 'ItemID') -> pd.DataFrame:
+    """
+    Фильтрует DataFrame, оставляя только те строки, для которых существуют
+    соответствующие изображения в указанной папке.
+
+    Args:
+        df (pd.DataFrame): Исходный DataFrame для фильтрации.
+        images_path (str): Путь к директории с изображениями.
+        item_id_col (str): Название колонки с ID элемента (по умолчанию 'ItemID').
+
+    Returns:
+        pd.DataFrame: Отфильтрованный DataFrame.
+    """
+    print(f"Проверка наличия изображений: {images_path}...")
+
+    if not os.path.isdir(images_path):
+        print(f"Директория '{images_path}' не найдена.")
+        return df
+    try:
+        available_image_ids = {os.path.splitext(f)[0] for f in os.listdir(images_path)}
+        if not available_image_ids:
+             print(f"В директории '{images_path}' не найдено изображений.")
+             return df
+    except Exception as e:
+        print(f"Ошибка при чтении директории '{images_path}': {e}.")
+        return df
+
+    if item_id_col not in df.columns:
+        print(f"Колонка '{item_id_col}' не найдена в DataFrame.")
+        return df
+        
+    initial_rows = len(df)
+
+    df_filtered = df[df[item_id_col].astype(str).isin(available_image_ids)].copy()
+    
+    final_rows = len(df_filtered)
+    removed_count = initial_rows - final_rows
+    
+    print("Проверка завершена.")
+    print(f"  Исходное количество строк: {initial_rows}")
+    print(f"  Удалено строк без изображений: {removed_count}")
+    print(f"  Итоговое количество строк: {final_rows}")
+    
+    return df_filtered

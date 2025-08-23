@@ -19,5 +19,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копирование файлов
 COPY ozon-services .
 
+# Test commit
 # По умолчанию запуск train
 # CMD ["python", "train.py"]

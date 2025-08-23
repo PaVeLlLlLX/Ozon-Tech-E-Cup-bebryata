@@ -1,84 +1,214 @@
 # @package _global_
 data:
-  csv_path: "../data/train/ml_ozon_сounterfeit_train.csv"
-  processed_tabular_path: "../data/processed/train.parquet"
+  csv_path: "../data/processed/train.csv"
+  #processed_tabular_path: "../data/processed/train.parquet"
   images_dir: "../data/train/ml_ozon_сounterfeit_train_images/"
-  
+  test_images_dir: "../data/test/ml_ozon_сounterfeit_test_images/"
   id_col: "ItemID"
   target_col: "resolution"
 
   text_cols:
-    - "brand_name"
     - "description"
     - "name_rus"
-    - "CommercialTypeName4"
+
 
   tabular_cols:
     # Исходные числовые признаки (уже отмасштабированные)
-    - rating_1_count
-    - rating_2_count
-    - rating_3_count
-    - rating_4_count
-    - rating_5_count
-    - comments_published_count
-    - photos_published_count
-    - videos_published_count
-    - PriceDiscounted
-    - item_time_alive
-    - item_count_fake_returns7
-    - item_count_fake_returns30
-    - item_count_fake_returns90
-    - item_count_sales7
-    - item_count_sales30
-    - item_count_sales90
-    - item_count_returns7
-    - item_count_returns30
-    - item_count_returns90
-    - GmvTotal7
-    - GmvTotal30
-    - GmvTotal90
-    - ExemplarAcceptedCountTotal7
-    - ExemplarAcceptedCountTotal30
-    - ExemplarAcceptedCountTotal90
-    - OrderAcceptedCountTotal7
-    - OrderAcceptedCountTotal30
-    - OrderAcceptedCountTotal90
-    - ExemplarReturnedCountTotal7
-    - ExemplarReturnedCountTotal30
-    - ExemplarReturnedCountTotal90
-    - ExemplarReturnedValueTotal7
-    - ExemplarReturnedValueTotal30
-    - ExemplarReturnedValueTotal90
-    - ItemVarietyCount
-    - ItemAvailableCount
-    - seller_time_alive
-    # Новые признаки, которые мы сгенерировали
-    - price_vs_cat_median
-    - name_len
-    - name_word_count
-    - has_копия
-    - has_реплика
-    - has_аналог
-    - has_совместимый
-    - brand_in_name_score
-    - has_ratings
-    - has_brand
-    - has_fake_returns
-    # Признаки после Target Encoding
+    - ItemID
+    - rating_1_count_scaled
+    - rating_2_count_scaled
+    - rating_3_count_scaled
+    - rating_4_count_scaled
+    - rating_5_count_scaled
+    - comments_published_count_scaled
+    - photos_published_count_scaled
+    - videos_published_count_scaled
+    - PriceDiscounted_scaled
+    - item_time_alive_scaled
+    - item_count_fake_returns7_scaled
+    - item_count_fake_returns30_scaled
+    - item_count_fake_returns90_scaled
+    - item_count_sales7_scaled
+    - item_count_sales30_scaled
+    - item_count_sales90_scaled
+    - item_count_returns7_scaled
+    - item_count_returns30_scaled
+    - item_count_returns90_scaled
+    - GmvTotal7_scaled
+    - GmvTotal30_scaled
+    - GmvTotal90_scaled
+    - ExemplarAcceptedCountTotal7_scaled
+    - ExemplarAcceptedCountTotal30_scaled
+    - ExemplarAcceptedCountTotal90_scaled
+    - OrderAcceptedCountTotal7_scaled
+    - OrderAcceptedCountTotal30_scaled
+    - OrderAcceptedCountTotal90_scaled
+    - ExemplarReturnedCountTotal7_scaled
+    - ExemplarReturnedCountTotal30_scaled
+    - ExemplarReturnedCountTotal90_scaled
+    - ExemplarReturnedValueTotal7_scaled
+    - ExemplarReturnedValueTotal30_scaled
+    - ExemplarReturnedValueTotal90_scaled
+    - ItemVarietyCount_scaled
+    - ItemAvailableCount_scaled
+    - seller_time_alive_scaled
+    - price_vs_cat_median_scaled
+    - name_len_scaled
+    - name_word_count_scaled
+    - has_копия_scaled
+    - has_реплика_scaled
+    - has_аналог_scaled
+    - has_совместимый_scaled
+    - brand_in_name_score_scaled
+    - has_ratings_scaled
+    - has_brand_scaled
+    - has_fake_returns_scaled
     - brand_name_te
     - SellerID_te
     - CommercialTypeName4_te
 
+
+    # - rating_1_count
+    # - rating_2_count
+    # - rating_3_count
+    # - rating_4_count
+    # - rating_5_count
+    # - comments_published_count
+    # - photos_published_count
+    # - videos_published_count
+    # - PriceDiscounted
+    # - item_time_alive
+    # - item_count_fake_returns7
+    # - item_count_fake_returns30
+    # - item_count_fake_returns90
+    # - item_count_sales7
+    # - item_count_sales30
+    # - item_count_sales90
+    # - item_count_returns7
+    # - item_count_returns30
+    # - item_count_returns90
+    # - GmvTotal7
+    # - GmvTotal30
+    # - GmvTotal90
+    # - ExemplarAcceptedCountTotal7
+    # - ExemplarAcceptedCountTotal30
+    # - ExemplarAcceptedCountTotal90
+    # - OrderAcceptedCountTotal7
+    # - OrderAcceptedCountTotal30
+    # - OrderAcceptedCountTotal90
+    # - ExemplarReturnedCountTotal7
+    # - ExemplarReturnedCountTotal30
+    # - ExemplarReturnedCountTotal90
+    # - ExemplarReturnedValueTotal7
+    # - ExemplarReturnedValueTotal30
+    # - ExemplarReturnedValueTotal90
+    # - ItemVarietyCount
+    # - ItemAvailableCount
+    # - seller_time_alive
+    # Новые признаки, которые мы сгенерировали
+    # - price_vs_cat_median
+    # - name_len
+    # - name_word_count
+    # - has_копия
+    # - has_реплика
+    # - has_аналог
+    # - has_совместимый
+    # - brand_in_name_score
+    # - has_ratings
+    # - has_brand
+    # - has_fake_returns
+    # Признаки после Target Encoding
+    # - brand_name_te
+    # - SellerID_te
+    # - CommercialTypeName4_te
+
   val_size: 0.1
+
+data_test:
+  csv_path: "../data/processed/test.csv"
+  images_dir: "../data/test/ml_ozon_сounterfeit_test_images/"
+
+  id_col: "ItemID"
+
+  text_cols:
+    - "description"
+    - "name_rus"
+
+
+  tabular_cols:
+    # Исходные числовые признаки (уже отмасштабированные)
+    - ItemID
+    - rating_1_count_scaled
+    - rating_2_count_scaled
+    - rating_3_count_scaled
+    - rating_4_count_scaled
+    - rating_5_count_scaled
+    - comments_published_count_scaled
+    - photos_published_count_scaled
+    - videos_published_count_scaled
+    - PriceDiscounted_scaled
+    - item_time_alive_scaled
+    - item_count_fake_returns7_scaled
+    - item_count_fake_returns30_scaled
+    - item_count_fake_returns90_scaled
+    - item_count_sales7_scaled
+    - item_count_sales30_scaled
+    - item_count_sales90_scaled
+    - item_count_returns7_scaled
+    - item_count_returns30_scaled
+    - item_count_returns90_scaled
+    - GmvTotal7_scaled
+    - GmvTotal30_scaled
+    - GmvTotal90_scaled
+    - ExemplarAcceptedCountTotal7_scaled
+    - ExemplarAcceptedCountTotal30_scaled
+    - ExemplarAcceptedCountTotal90_scaled
+    - OrderAcceptedCountTotal7_scaled
+    - OrderAcceptedCountTotal30_scaled
+    - OrderAcceptedCountTotal90_scaled
+    - ExemplarReturnedCountTotal7_scaled
+    - ExemplarReturnedCountTotal30_scaled
+    - ExemplarReturnedCountTotal90_scaled
+    - ExemplarReturnedValueTotal7_scaled
+    - ExemplarReturnedValueTotal30_scaled
+    - ExemplarReturnedValueTotal90_scaled
+    - ItemVarietyCount_scaled
+    - ItemAvailableCount_scaled
+    - seller_time_alive_scaled
+    - price_vs_cat_median_scaled
+    - name_len_scaled
+    - name_word_count_scaled
+    - has_копия_scaled
+    - has_реплика_scaled
+    - has_аналог_scaled
+    - has_совместимый_scaled
+    - brand_in_name_score_scaled
+    - has_ratings_scaled
+    - has_brand_scaled
+    - has_fake_returns_scaled
+    - brand_name_te
+    - SellerID_te
+    - CommercialTypeName4_te
 
 tokenizer:
   _target_: transformers.AutoTokenizer.from_pretrained
-  pretrained_model_name_or_path: "cointegrated/rubert-tiny2"
-  model_name: "cointegrated/rubert-tiny2"
+  pretrained_model_name_or_path: "sberbank-ai/ruBERT-base"
+  model_name: "sberbank-ai/ruBERT-base"
 
 data_loader:
   _target_: srcs.data_loader.data_loaders.get_dataloaders
   images_dir: ${data.images_dir}
+  tokenizer: ${tokenizer}
+  tabular_cols: ${data.tabular_cols}
+  target_col: ${data.target_col}
+  id_col: ${data.id_col}
+  text_cols: ${data.text_cols}
+  batch_size: ${batch_size}
+  num_workers: ${n_cpu}
+
+test_data_loader:
+  _target_: srcs.data_loader.data_loaders.get_test_dataloader
+  images_dir: ${data.test_images_dir}
   tokenizer: ${tokenizer}
   tabular_cols: ${data.tabular_cols}
   target_col: ${data.target_col}
