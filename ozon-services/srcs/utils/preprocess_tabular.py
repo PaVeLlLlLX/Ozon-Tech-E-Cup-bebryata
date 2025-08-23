@@ -135,15 +135,33 @@ def generate_all_features(df):
         return 0
     df['brand_in_name_score'] = df.apply(brand_match_score, axis=1)
     
-    df['has_ratings'] = (df['rating_1_count'].fillna(0) + df['rating_5_count'].fillna(0)) > 0
+    df['has_ratings'] = (df[['rating_1_count','rating_2_count','rating_3_count','rating_4_count','rating_5_count']].sum(axis=1) > 0).astype(int)
     df['has_brand'] = df['brand_name'].notna() & (df['brand_name'] != '__MISSING__')
     df['has_fake_returns'] = (df['item_count_fake_returns90'] > 0).astype(int)
     df['has_photo'] = (df['photos_published_count'] > 0).astype(int)
 
     # --- Блок 2: Продвинутые ценовые признаки ---
     # Группируем по категориям и брендам, чтобы найти аномально дешевые/дорогие товары
-    df['price_vs_cat_median'] = df['PriceDiscounted'] / (df.groupby('CommercialTypeName4')['PriceDiscounted'].transform('median') + 1)
-    df['price_vs_brand_median'] = df['PriceDiscounted'] / (df.groupby('brand_name')['PriceDiscounted'].transform('median') + 1)
+
+    grp_cat = df.groupby('CommercialTypeName4')['PriceDiscounted']
+    median_cat = grp_cat.transform('median')
+    mad_cat = (df['PriceDiscounted'] - median_cat).abs().groupby(df['CommercialTypeName4']).transform('median') + 1e-6
+
+    df['log_price'] = np.log1p(df['PriceDiscounted'])
+    df['log_price_minus_cat_median'] = np.log1p(df['PriceDiscounted']) - np.log1p(median_cat + 1e-6)
+    df['robust_price_z_cat'] = (df['PriceDiscounted'] - median_cat) / mad_cat
+
+    grp_brand = df.groupby('brand_name')['PriceDiscounted']
+    median_brand = grp_brand.transform('median')
+    mad_brand = (df['PriceDiscounted'] - median_brand).abs().groupby(df['brand_name']).transform('median') + 1e-6
+
+    df['log_price_minus_brand_median'] = np.log1p(df['PriceDiscounted']) - np.log1p(median_brand + 1e-6)
+    df['robust_price_z_brand'] = (df['PriceDiscounted'] - median_brand) / mad_brand
+
+
+
+    #df['price_vs_cat_median'] = df['PriceDiscounted'] / (df.groupby('CommercialTypeName4')['PriceDiscounted'].transform('median') + 1)
+    #df['price_vs_brand_median'] = df['PriceDiscounted'] / (df.groupby('brand_name')['PriceDiscounted'].transform('median') + 1)
     
     # --- Блок 3: Признаки-соотношения (Ratios) на уровне товара. Превращаем "мусорные" признаки в золото! ---
     safe_div = lambda a, b: a / (b + 1e-6)
@@ -221,7 +239,7 @@ def create_ts_features(df):
 
     # 4. Какова историческая доля контрафакта у этого продавца? (Динамический Target Encoding!)
     # Этот признак можно создать только для трейна
-    if 'resolution' in df.columns:
+    if 'resolution' in df.columns: # !!! Возможна утечка, осторожно !!! 
         seller_fraud_rate = df.groupby('SellerID')['resolution'].expanding().mean().reset_index(level=0, drop=True).shift(1)
         df['seller_fraud_rate_expanding'] = seller_fraud_rate
         df['seller_fraud_rate_expanding'].fillna(-1, inplace=True) # -1 для новых продавцов
