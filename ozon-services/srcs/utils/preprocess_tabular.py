@@ -11,7 +11,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.base import BaseEstimator, TransformerMixin
 from Levenshtein import distance as lev_distance
 from sklearn.model_selection import StratifiedKFold
-from preprocess_text import clean_description, clean_name
+from preprocess_text import clean_description, clean_name_rus, clean_brand_commertial4_name
 from util import delete_rows_without_images
 
 # --- Новая функция для оптимизации памяти ---
@@ -39,9 +39,8 @@ def optimize_memory_usage(df):
                 elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
                     df[col] = df[col].astype(np.int64)
             else:
-                if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
-                    df[col] = df[col].astype(np.float16)
-                elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                # Используем float32 вместо float16 для большей стабильности вычислений
+                if c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
                     df[col] = df[col].astype(np.float32)
                 else:
                     df[col] = df[col].astype(np.float64)
@@ -104,104 +103,150 @@ class TargetEncoder(BaseEstimator, TransformerMixin):
     def get_feature_names_out(self, input_features=None):
         return self.encoded_cols_
 
-# --- Функции для создания признаков ---
-def brand_match_score(row):
-    # Работа с ОЧИЩЕННЫМИ данными
-    name = str(row['name_rus']) # Используем очищенное название
-    brand = str(row['brand_name']) # Используем очищенный бренд
-    if not brand: return -1
-    if brand in name: return 1
-    try:
-        min_dist = min([lev_distance(brand, word) for word in name.split()])
-        if min_dist <= 2: return 0.5
-    except (ValueError, TypeError): return 0
-    return 0
-
-def create_features(df):
-    """Добавляет в DataFrame новые признаки, созданные на основе EDA."""
-
+# --- НОВАЯ, ОБЪЕДИНЕННАЯ ФУНКЦИЯ ДЛЯ СОЗДАНИЯ ПРИЗНАКОВ ---
+def generate_all_features(df):
+    """
+    Добавляет в DataFrame новые признаки, созданные на основе EDA и анализа важности.
+    Объединяет старые и новые генераторы признаков.
+    """
     print("Создание новых признаков...")
     
-    median_price_by_cat = df.groupby('CommercialTypeName4')['PriceDiscounted'].transform('median')
-    df['price_vs_cat_median'] = df['PriceDiscounted'] / (median_price_by_cat + 1)
-    
+    # --- Блок 1: Признаки на основе текста и базовые ---
     df['name_len'] = df['name_rus'].str.len().fillna(0)
     df['name_word_count'] = df['name_rus'].str.split().str.len().fillna(0)
+    
+    # Считаем долю заглавных букв. Используем исходный 'raw_name_rus', т.к. 'name_rus' уже в нижнем регистре.
+    df['caps_ratio_in_name'] = df['raw_name_rus'].str.count(r'[A-ZА-Я]') / (df['name_len'] + 1e-6)
     
     KEYWORDS = ['копия', 'реплика', 'аналог', 'совместимый']
     for word in KEYWORDS:
         df[f'has_{word}'] = df['description'].str.contains(word, case=False).fillna(False).astype(int)
-        
+    
+    # Функция для brand_in_name_score
+    def brand_match_score(row):
+        name = str(row['name_rus'])
+        brand = str(row['brand_name'])
+        if not brand or brand == '__missing__': return -1
+        if brand in name: return 1
+        try:
+            min_dist = min([lev_distance(brand, word) for word in name.split()])
+            if min_dist <= 2: return 0.5
+        except (ValueError, TypeError): return 0
+        return 0
     df['brand_in_name_score'] = df.apply(brand_match_score, axis=1)
-    df['has_ratings'] = df['rating_1_count'].notna().astype(int)
-    df['has_brand'] = df['brand_name'].notna().astype(int)
+    
+    df['has_ratings'] = (df['rating_1_count'].fillna(0) + df['rating_5_count'].fillna(0)) > 0
+    df['has_brand'] = df['brand_name'].notna() & (df['brand_name'] != '__MISSING__')
     df['has_fake_returns'] = (df['item_count_fake_returns90'] > 0).astype(int)
     df['has_photo'] = (df['photos_published_count'] > 0).astype(int)
+
+    # --- Блок 2: Продвинутые ценовые признаки ---
+    # Группируем по категориям и брендам, чтобы найти аномально дешевые/дорогие товары
+    df['price_vs_cat_median'] = df['PriceDiscounted'] / (df.groupby('CommercialTypeName4')['PriceDiscounted'].transform('median') + 1)
+    df['price_vs_brand_median'] = df['PriceDiscounted'] / (df.groupby('brand_name')['PriceDiscounted'].transform('median') + 1)
+    
+    # --- Блок 3: Признаки-соотношения (Ratios) на уровне товара. Превращаем "мусорные" признаки в золото! ---
+    safe_div = lambda a, b: a / (b + 1e-6)
+    df['item_return_ratio_90'] = safe_div(df['item_count_returns90'], df['item_count_sales90'])
+    df['item_fake_return_ratio_90'] = safe_div(df['item_count_fake_returns90'], df['item_count_returns90'])
+    
+    # --- Блок 4: Паттерны в рейтингах ---
+    rating_cols = ['rating_1_count', 'rating_2_count', 'rating_3_count', 'rating_4_count', 'rating_5_count']
+    df['total_ratings'] = df[rating_cols].sum(axis=1)
+    df['avg_rating'] = safe_div(
+        (df['rating_1_count'] * 1 + df['rating_2_count'] * 2 + df['rating_3_count'] * 3 + df['rating_4_count'] * 4 + df['rating_5_count'] * 5),
+        df['total_ratings']
+    )
+    # Поляризация оценок: много 1 и 5, мало средних. Характерно для контрафакта.
+    df['rating_polarization'] = safe_div(
+        (df['rating_1_count'] + df['rating_5_count']),
+        df['total_ratings']
+    )
+    
+    # --- Блок 5: Агрегированные признаки на уровне продавца (Seller-level) ---
+    # Создаем "профиль риска" для каждого продавца
+    seller_agg = df.groupby('SellerID').agg(
+        seller_avg_item_price=('PriceDiscounted', 'mean'),
+        seller_total_sales_90=('item_count_sales90', 'sum'),
+        seller_total_returns_90=('item_count_returns90', 'sum'),
+        seller_total_fake_returns_90=('item_count_fake_returns90', 'sum'),
+        seller_avg_rating=('avg_rating', 'mean')
+    ).reset_index()
+
+    # Считаем коэффициенты возвратов для продавца в целом
+    seller_agg['seller_return_rate_90'] = safe_div(seller_agg['seller_total_returns_90'], seller_agg['seller_total_sales_90'])
+    seller_agg['seller_fake_return_rate_90'] = safe_div(seller_agg['seller_total_fake_returns_90'], seller_agg['seller_total_returns_90'])
+
+    # Присоединяем агрегированные данные обратно к основному датафрейму
+    df = pd.merge(df, seller_agg, on='SellerID', how='left')
+
+    # Заполняем пропуски в новых колонках нулями (на случай, если где-то деление на 0 дало NaN)
+    new_feature_cols = [
+        'price_vs_cat_median', 'price_vs_brand_median', 'item_return_ratio_90', 'item_fake_return_ratio_90',
+        'total_ratings', 'avg_rating', 'rating_polarization', 'seller_avg_item_price', 'seller_total_sales_90',
+        'seller_total_returns_90', 'seller_total_fake_returns_90', 'seller_avg_rating', 'seller_return_rate_90',
+        'seller_fake_return_rate_90', 'caps_ratio_in_name'
+    ]
+    for col in new_feature_cols:
+        df[col] = df[col].fillna(0)
+
+    print(f"Создано {len(new_feature_cols)} новых признаков.")
     return df
+
 
 def process_data(is_train=True):
     """Основная функция для обработки данных и сохранения артефактов."""
     
     base_data_path = './data/'
-    images_path = ''
     if is_train:
         print("Обработка TRAIN данных...")
         base_data_path += 'train/'
-        images_path = f'{base_data_path}ml_ozon_сounterfeit_train_images'
         df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_train.csv'))
     else:
         print("Обработка TEST данных...")
         base_data_path += 'test/'
-        images_path = f'{base_data_path}ml_ozon_сounterfeit_test_images'
         df = pd.read_csv(os.path.join(base_data_path, 'ml_ozon_сounterfeit_test.csv'))
 
-    # Не удаляем
-    # print("Удаление товаров без изображений...")
-    
-    # df = delete_rows_without_images(df, images_path)
-
-    # Сохраняем ключевые колонки, которые нужно оставить "как есть"
     key_cols = ['id', 'name_rus', 'ItemID']
     if is_train:
         key_cols.append('resolution')
 
     print("Явная обработка пропусков...")
-    
-    # Категориальные
-    df['brand_name'] = df['brand_name'].fillna('__MISSING__')
-    df['CommercialTypeName4'] = df['CommercialTypeName4'].fillna('__MISSING__')
-    df['description'] = df['description'].fillna('__MISSING__')
+    num_cols_to_fill = [col for col in df.columns if 'rating' in col or 'count' in col or 'Count' in col or 'Gmv' in col or 'Exemplar' in col or 'Order' in col]
+    df[num_cols_to_fill] = df[num_cols_to_fill].fillna(0)
 
-    # Числовые, где NaN означает 0 (рейтинги, комментарии)
-    rating_cols = [col for col in df.columns if 'rating' in col or 'count' in col or 'Count' in col]
-    df[rating_cols] = df[rating_cols].fillna(0)
-
-    # Числовые, где NaN означает "активности не было" (продажи, возвраты)
-    activity_cols = [col for col in df.columns if 'Gmv' in col or 'Exemplar' in col or 'Order' in col]
-    df[activity_cols] = df[activity_cols].fillna(0)
+    # [ИЗМЕНЕНО] Сохраняем исходное название товара ДО очистки для анализа регистра
+    df['raw_name_rus'] = df['name_rus'].astype(str)
 
     print("Очистка текстовых описаний...")
-
-    df['description'] = df['description'].apply(clean_description)
-    df.loc[df['description'] == '', 'description'] = '__MISSING__'
-    df['name_rus'] = df['name_rus'].apply(clean_description)
-    df.loc[df['name_rus'] == '', 'name_rus'] = '__MISSING__'
-    df['brand_name'] = df['brand_name'].apply(clean_name)
-    df.loc[df['brand_name'] == '', 'brand_name'] = '__MISSING__'
-    df['CommercialTypeName4'] = df['CommercialTypeName4'].apply(clean_name)
-    df.loc[df['CommercialTypeName4'] == '', 'CommercialTypeName4'] = '__MISSING__'
-
-    df = create_features(df)
+    for col in ['description', 'name_rus', 'brand_name', 'CommercialTypeName4']:
+        # Применяем соответствующую функцию очистки
+        if col in ['brand_name', 'CommercialTypeName4']:
+            df[col] = df[col].apply(clean_brand_commertial4_name)
+        elif col == 'name_rus':
+            df[col] = df[col].apply(clean_name_rus)
+        else: # description
+            df[col] = df[col].apply(clean_description)
+        # Заполняем пустые строки после очистки
+        df.loc[df[col] == '', col] = '__MISSING__'
+    
+    # [ИЗМЕНЕНО] Вызываем новую единую функцию для генерации всех признаков
+    df = generate_all_features(df)
+    
+    # Удаляем временную колонку
+    df = df.drop(columns=['raw_name_rus'])
 
     df_keys = df[key_cols].copy()
     df_keys['description'] = df['description']
     
     target_encode_cols = ['brand_name', 'SellerID', 'CommercialTypeName4']
     
+    # Определяем числовые колонки для масштабирования. Теперь включаем все новые сгенерированные признаки.
     numeric_cols = list(df.select_dtypes(include=np.number).columns)
-    
     cols_to_remove_from_numeric = ['id', 'resolution', 'ItemID', 'SellerID']
     numeric_cols_to_scale = [col for col in numeric_cols if col not in cols_to_remove_from_numeric]
+
+    print(f"Количество признаков для масштабирования: {len(numeric_cols_to_scale)}")
 
     df['SellerID'] = df['SellerID'].astype(str)
     
@@ -211,7 +256,7 @@ def process_data(is_train=True):
     ])
     
     target_transformer = Pipeline(steps=[
-        ('target_encoder', TargetEncoder()) # Используем новый, правильный TargetEncoder
+        ('target_encoder', TargetEncoder())
     ])
 
     preprocessor = ColumnTransformer(
@@ -219,12 +264,11 @@ def process_data(is_train=True):
             ('num', numeric_transformer, numeric_cols_to_scale),
             ('target', target_transformer, target_encode_cols)
         ],
-        remainder='passthrough' # Сохраняем остальные колонки (включая созданные нами фичи)
+        remainder='drop' # Явно указываем, что остальные колонки нужно отбросить
     )
 
     if is_train:
         print("Обучение препроцессора...")
-        # Убираем все, что не нужно для обучения препроцессора
         cols_to_drop_for_fit = ['resolution', 'description', 'name_rus', 'ItemID', 'id']
         X = df.drop(columns=cols_to_drop_for_fit, errors='ignore')
         y = df['resolution']
@@ -239,25 +283,15 @@ def process_data(is_train=True):
         with open("artifacts/preprocessor.pkl", "rb") as f:
             preprocessor = pickle.load(f)
 
-    print("Трансформация данных и добавление новых признаков...")
-    
     print("Трансформация данных...")
     X_to_transform = df.drop(columns=['resolution', 'description', 'name_rus', 'ItemID', 'id'], errors='ignore')
     X_transformed = preprocessor.transform(X_to_transform)
     
-    # Получаем имена колонок после трансформации
-    # Имена от Scaler - это исходные numeric_cols_to_scale + суффикс
     scaled_cols = [f"{c}_scaled" for c in numeric_cols_to_scale]
-    # Имена от TargetEncoder - получаем из самого энкодера
     encoded_cols = preprocessor.named_transformers_['target'].get_feature_names_out()
-    # Имена "оставшихся" колонок - это те, что не попали в numeric и target, но были в X
-
-    passthrough_cols = [col for col in X_to_transform.columns if col not in numeric_cols_to_scale and col not in target_encode_cols]
-
-    #passthrough_cols_mask = preprocessor.named_transformers_['remainder'].get_support()
-    #passthrough_cols = X_to_transform.columns[passthrough_cols_mask].tolist()
     
-    new_cols = scaled_cols + encoded_cols + passthrough_cols
+    # [ИЗМЕНЕНО] Собираем финальный список колонок. `remainder` теперь 'drop', поэтому `passthrough_cols` не нужны.
+    new_cols = scaled_cols + list(encoded_cols)
     df_processed = pd.DataFrame(X_transformed, columns=new_cols, index=df.index)
     
     df_final = pd.merge(df_keys, df_processed, left_index=True, right_index=True)
