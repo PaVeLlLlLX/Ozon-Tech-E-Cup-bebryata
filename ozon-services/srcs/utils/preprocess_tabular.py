@@ -126,7 +126,7 @@ def generate_all_features(df):
     def brand_match_score(row):
         name = str(row['name_rus'])
         brand = str(row['brand_name'])
-        if not brand or brand == '__missing__': return -1
+        if not brand or brand == '__MISSING__': return -1
         if brand in name: return 1
         try:
             min_dist = min([lev_distance(brand, word) for word in name.split()])
