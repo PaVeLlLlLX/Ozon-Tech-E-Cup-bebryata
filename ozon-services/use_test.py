@@ -71,7 +71,7 @@ def train_semi_supervised(config: DictConfig):
     tabular_input_dim = len(config.data.tabular_cols)
     model = instantiate(config.arch, tabular_input_dim=tabular_input_dim)
     
-    model.load_state_dict(../)
+    #model.load_state_dict(../)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
@@ -119,9 +119,9 @@ def train_semi_supervised(config: DictConfig):
                 all_targets.append(target.cpu())
 
         f1 = f1_score(torch.cat(all_targets), torch.cat(all_preds))
-        precision = precision_score(torch.cat(all_targets), torch.cat(all_preds))
-        recall = recall_score(torch.cat(all_targets), torch.cat(all_preds))
-        accuracy = accuracy_score(torch.cat(all_targets), torch.cat(all_preds))
+        # precision = precision_score(torch.cat(all_targets), torch.cat(all_preds))
+        # recall = recall_score(torch.cat(all_targets), torch.cat(all_preds))
+        # accuracy = accuracy_score(torch.cat(all_targets), torch.cat(all_preds))
         print(f"Epoch {epoch+1}, Validation F1-score: {f1:.4f}, Validation accuracy-score: {accuracy:.4f}, Validation precision-score: {precision:.4f}, Validation recall-score: {recall:.4f}")
         logging.info(f"Epoch {epoch+1}, Validation F1-score: {f1:.4f}, Validation accuracy-score: {accuracy:.4f}, Validation precision-score: {precision:.4f}, Validation recall-score: {recall:.4f}")
         if f1 > best_f1:

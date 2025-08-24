@@ -9,7 +9,6 @@ from torchvision.models import resnet18
 from srcs.model.tab_model import CatBoostTabularModel, TabNetModel
 from srcs.model.text_model import TextNet
 from srcs.model.image_model import ImageNet
-from srcs.model.tab_model import TabNetModel
 
 class MultimodalModel(nn.Module):
     def __init__(self, tabular_input_dim, text_model_name="sberbank-ai/ruBERT-base"):
