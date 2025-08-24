@@ -14,7 +14,6 @@ data:
 
   tabular_cols:
     # Исходные числовые признаки (уже отмасштабированные)
-    - ItemID
     - rating_1_count_scaled
     - rating_2_count_scaled
     - rating_3_count_scaled
@@ -52,75 +51,85 @@ data:
     - ItemVarietyCount_scaled
     - ItemAvailableCount_scaled
     - seller_time_alive_scaled
-    - price_vs_cat_median_scaled
     - name_len_scaled
+    - description_len_scaled
     - name_word_count_scaled
-    - has_копия_scaled
-    - has_реплика_scaled
-    - has_аналог_scaled
-    - has_совместимый_scaled
+    - description_word_count_scaled
+    - caps_ratio_in_name_scaled
+    - digits_in_name_ratio_scaled
+    - has_копия_description_scaled
+    - has_копия_name_rus_scaled
+    - has_реплика_description_scaled
+    - has_реплика_name_rus_scaled
+    - has_аналог_description_scaled
+    - has_аналог_name_rus_scaled
+    - has_совместимый_description_scaled
+    - has_совместимый_name_rus_scaled
     - brand_in_name_score_scaled
+    - name_desc_similarity_scaled
+    - word_repeat_ratio_scaled
+    - special_char_ratio_scaled
     - has_ratings_scaled
     - has_brand_scaled
     - has_fake_returns_scaled
+    - has_photo_scaled
+    - has_video_scaled
+    - has_comments_scaled
+    - is_premium_brand_scaled
+    - brand_frequency_scaled
+    - has_tech_specs_scaled
+    - desc_len_vs_category_scaled
+    - log_price_scaled
+    - log_price_minus_cat_median_scaled
+    - robust_price_z_cat_scaled
+    - price_zscore_cat_scaled
+    - log_price_minus_brand_median_scaled
+    - robust_price_z_brand_scaled
+    - price_zscore_brand_scaled
+    - price_vs_global_median_scaled
+    - item_return_ratio_7_scaled
+    - item_return_ratio_30_scaled
+    - item_return_ratio_90_scaled
+    - item_fake_return_ratio_7_scaled
+    - item_fake_return_ratio_30_scaled
+    - item_fake_return_ratio_90_scaled
+    - sales_growth_7_30_scaled
+    - return_recent_ratio_7_90_scaled
+    - item_age_ratio_scaled
+    - return_value_ratio_90_scaled
+    - item_gmv_share_90_scaled
+    - total_ratings_scaled
+    - avg_rating_scaled
+    - price_avg_rating_interact_scaled
+    - rating_polarization_scaled
+    - negative_ratio_scaled
+    - rating_variance_scaled
+    - seller_avg_item_price_scaled
+    - seller_total_sales_90_scaled
+    - seller_total_returns_90_scaled
+    - seller_total_fake_returns_90_scaled
+    - seller_avg_rating_scaled
+    - seller_return_rate_90_scaled
+    - seller_fake_return_rate_90_scaled
+    - seller_category_entropy_scaled
+    - seller_item_depth_scaled
+    - seller_newbie_scaled
+    - has_multiple_items_scaled
+    - rating_skewness_scaled
+    - sales_spike_7d_scaled
+    - returns_spike_7d_scaled
+    - brand_cat_rarity_scaled
+    - is_rare_brand_cat_scaled
+    - price_brand_cat_anomaly_scaled
+    - brand_popularity_in_cat_scaled
+    - seller_items_listed_expanding_scaled
+    - seller_avg_price_expanding_scaled
+    - price_deviation_from_seller_mean_scaled
+    - seller_rating_trend_scaled
+    - seller_price_volatility_scaled
     - brand_name_te
     - SellerID_te
     - CommercialTypeName4_te
-
-
-    # - rating_1_count
-    # - rating_2_count
-    # - rating_3_count
-    # - rating_4_count
-    # - rating_5_count
-    # - comments_published_count
-    # - photos_published_count
-    # - videos_published_count
-    # - PriceDiscounted
-    # - item_time_alive
-    # - item_count_fake_returns7
-    # - item_count_fake_returns30
-    # - item_count_fake_returns90
-    # - item_count_sales7
-    # - item_count_sales30
-    # - item_count_sales90
-    # - item_count_returns7
-    # - item_count_returns30
-    # - item_count_returns90
-    # - GmvTotal7
-    # - GmvTotal30
-    # - GmvTotal90
-    # - ExemplarAcceptedCountTotal7
-    # - ExemplarAcceptedCountTotal30
-    # - ExemplarAcceptedCountTotal90
-    # - OrderAcceptedCountTotal7
-    # - OrderAcceptedCountTotal30
-    # - OrderAcceptedCountTotal90
-    # - ExemplarReturnedCountTotal7
-    # - ExemplarReturnedCountTotal30
-    # - ExemplarReturnedCountTotal90
-    # - ExemplarReturnedValueTotal7
-    # - ExemplarReturnedValueTotal30
-    # - ExemplarReturnedValueTotal90
-    # - ItemVarietyCount
-    # - ItemAvailableCount
-    # - seller_time_alive
-    # Новые признаки, которые мы сгенерировали
-    # - price_vs_cat_median
-    # - name_len
-    # - name_word_count
-    # - has_копия
-    # - has_реплика
-    # - has_аналог
-    # - has_совместимый
-    # - brand_in_name_score
-    # - has_ratings
-    # - has_brand
-    # - has_fake_returns
-    # Признаки после Target Encoding
-    # - brand_name_te
-    # - SellerID_te
-    # - CommercialTypeName4_te
 
   val_size: 0.1
 
@@ -137,7 +146,6 @@ data_test:
 
   tabular_cols:
     # Исходные числовые признаки (уже отмасштабированные)
-    - ItemID
     - rating_1_count_scaled
     - rating_2_count_scaled
     - rating_3_count_scaled
@@ -175,17 +183,82 @@ data_test:
     - ItemVarietyCount_scaled
     - ItemAvailableCount_scaled
     - seller_time_alive_scaled
-    - price_vs_cat_median_scaled
     - name_len_scaled
+    - description_len_scaled
     - name_word_count_scaled
-    - has_копия_scaled
-    - has_реплика_scaled
-    - has_аналог_scaled
-    - has_совместимый_scaled
+    - description_word_count_scaled
+    - caps_ratio_in_name_scaled
+    - digits_in_name_ratio_scaled
+    - has_копия_description_scaled
+    - has_копия_name_rus_scaled
+    - has_реплика_description_scaled
+    - has_реплика_name_rus_scaled
+    - has_аналог_description_scaled
+    - has_аналог_name_rus_scaled
+    - has_совместимый_description_scaled
+    - has_совместимый_name_rus_scaled
     - brand_in_name_score_scaled
+    - name_desc_similarity_scaled
+    - word_repeat_ratio_scaled
+    - special_char_ratio_scaled
     - has_ratings_scaled
     - has_brand_scaled
     - has_fake_returns_scaled
+    - has_photo_scaled
+    - has_video_scaled
+    - has_comments_scaled
+    - is_premium_brand_scaled
+    - brand_frequency_scaled
+    - has_tech_specs_scaled
+    - desc_len_vs_category_scaled
+    - log_price_scaled
+    - log_price_minus_cat_median_scaled
+    - robust_price_z_cat_scaled
+    - price_zscore_cat_scaled
+    - log_price_minus_brand_median_scaled
+    - robust_price_z_brand_scaled
+    - price_zscore_brand_scaled
+    - price_vs_global_median_scaled
+    - item_return_ratio_7_scaled
+    - item_return_ratio_30_scaled
+    - item_return_ratio_90_scaled
+    - item_fake_return_ratio_7_scaled
+    - item_fake_return_ratio_30_scaled
+    - item_fake_return_ratio_90_scaled
+    - sales_growth_7_30_scaled
+    - return_recent_ratio_7_90_scaled
+    - item_age_ratio_scaled
+    - return_value_ratio_90_scaled
+    - item_gmv_share_90_scaled
+    - total_ratings_scaled
+    - avg_rating_scaled
+    - price_avg_rating_interact_scaled
+    - rating_polarization_scaled
+    - negative_ratio_scaled
+    - rating_variance_scaled
+    - seller_avg_item_price_scaled
+    - seller_total_sales_90_scaled
+    - seller_total_returns_90_scaled
+    - seller_total_fake_returns_90_scaled
+    - seller_avg_rating_scaled
+    - seller_return_rate_90_scaled
+    - seller_fake_return_rate_90_scaled
+    - seller_category_entropy_scaled
+    - seller_item_depth_scaled
+    - seller_newbie_scaled
+    - has_multiple_items_scaled
+    - rating_skewness_scaled
+    - sales_spike_7d_scaled
+    - returns_spike_7d_scaled
+    - brand_cat_rarity_scaled
+    - is_rare_brand_cat_scaled
+    - price_brand_cat_anomaly_scaled
+    - brand_popularity_in_cat_scaled
+    - seller_items_listed_expanding_scaled
+    - seller_avg_price_expanding_scaled
+    - price_deviation_from_seller_mean_scaled
+    - seller_rating_trend_scaled
+    - seller_price_volatility_scaled
     - brand_name_te
     - SellerID_te
     - CommercialTypeName4_te

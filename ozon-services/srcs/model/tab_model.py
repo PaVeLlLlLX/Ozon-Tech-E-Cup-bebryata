@@ -26,8 +26,8 @@ class TabularNet(nn.Module):
         return self.fc(x)
 
 class TabNetModel(nn.Module):
-    def __init__(self, input_dim, output_dim=64, n_d=32, n_a=32, n_steps=4, 
-                 gamma=1.3, n_independent=2, n_shared=2, momentum=0.02):
+    def __init__(self, input_dim, output_dim=128, n_d=32, n_a=32, n_steps=4, 
+                 gamma=1.3, n_independent=4, n_shared=4, momentum=0.02):
         super().__init__()
 
         group_matrix = torch.eye(input_dim).to('cuda')
@@ -50,10 +50,10 @@ class TabNetModel(nn.Module):
         
         # ИСПРАВЛЕНО: Проекционный слой должен принимать на вход n_d + n_a признаков
         self.embedding_projection = nn.Sequential(
-            nn.Linear(n_d + n_a, 128),
+            nn.Linear(n_d + n_a, 256),
             nn.ReLU(),
-            nn.LayerNorm(128),
-            nn.Linear(128, output_dim)
+            nn.LayerNorm(256),
+            nn.Linear(256, output_dim)
         )
 
     def forward(self, x: torch.Tensor):

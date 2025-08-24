@@ -1,10 +1,10 @@
 import re
-import pymorphy2
+import pymorphy3
 import nltk
 from nltk.corpus import stopwords
 from bs4 import BeautifulSoup
 
-morph = pymorphy2.MorphAnalyzer()
+morph = pymorphy3.MorphAnalyzer()
 # стоп-слова
 try:
     russian_stopwords = stopwords.words("russian")
@@ -68,12 +68,13 @@ def clean_description(text: str) -> str:
     #    separator=' ' гарантирует, что слова не склеятся.
     text = BeautifulSoup(text, "html.parser").get_text(separator=' ')
 
+    # Нижний регистр не убираем
     # 2. Приводим к нижнему регистру
-    text = text.lower()
+    # text = text.lower()
 
     # 3. Удаляем все, что не является буквами, цифрами или стандартными знаками препинания.
     #    Оставим спец. символы (точки, дефисы, запятые, ти-ре, плюсы, решетки), они могут быть важны.
-    text = re.sub(r'[^a-zа-яё0-9\s\.\-\,\+/#_]', ' ', text)
+    text = re.sub(r'[^a-zA-Zа-яА-ЯёЁ0-9\s\.\-\,\+/#_]', ' ', text)
     
     # 4. Разбиваем на слова (токенизация) и убираем лишние пробелы
     words = text.split()

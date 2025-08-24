@@ -71,7 +71,7 @@ def train_semi_supervised(config: DictConfig):
     tabular_input_dim = len(config.data.tabular_cols)
     model = instantiate(config.arch, tabular_input_dim=tabular_input_dim)
     
-    #model.load_state_dict(../)
+    # model.load_state_dict(../)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)

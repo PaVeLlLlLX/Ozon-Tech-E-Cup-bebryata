@@ -5,13 +5,13 @@ import torchvision
 import pandas as pd
 import logging
 from omegaconf import DictConfig, OmegaConf
-from srcs.model.image_model import ImageNet
 from pathlib import Path
 from srcs.trainer import Trainer
 from srcs.utils import instantiate, get_logger, is_master
-from srcs.model.model import get_model
+from srcs.model.model import get_model, MultimodalModel
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_class_weight
+
 # fix random seeds for reproducibility
 SEED = 123
 torch.manual_seed(SEED)
@@ -38,16 +38,9 @@ def train_worker(config: DictConfig):
     # processed_df = pd.read_parquet(
     #     hydra.utils.to_absolute_path(config.data.processed_tabular_path)
     # )
-    #raw_df.info()
-    #logger.info(f"Loading processed tabular data from: {config.data.processed_tabular_path}")
-    # processed_df = pd.read_parquet(
-    #     hydra.utils.to_absolute_path(config.data.processed_tabular_path)
-    # )
 
     # Объединяем датафреймы по 'id'
     # Убедимся, что 'id' есть в обоих датафреймах для мержа
-    # if 'id' not in raw_df.columns or 'id' not in processed_df.columns:
-    #     raise ValueError("'id' column must be present in both raw and processed dataframes for merging.")
     # if 'id' not in raw_df.columns or 'id' not in processed_df.columns:
     #     raise ValueError("'id' column must be present in both raw and processed dataframes for merging.")
         
@@ -55,27 +48,22 @@ def train_worker(config: DictConfig):
     # Это предотвратит дублирование колонок
     # nlp_cv_cols = config.data.text_cols + [config.data.id_col, 'id'] # Добавляем ItemID и id для связки
     # raw_df_subset = raw_df[nlp_cv_cols].drop_duplicates()
-    # nlp_cv_cols = config.data.text_cols + [config.data.id_col, 'id'] # Добавляем ItemID и id для связки
-    # raw_df_subset = raw_df[nlp_cv_cols].drop_duplicates()
 
     # Объединяем по 'id'. В full_df теперь будут и сырые текстовые, и обработанные табличные данные
     # full_df = pd.merge(raw_df_subset, processed_df, on='id', how='inner')
-    # full_df = pd.merge(raw_df_subset, processed_df, on='id', how='inner')
     
-    # logger.info(f"Final merged dataframe shape: {full_df.shape}")
     # logger.info(f"Final merged dataframe shape: {full_df.shape}")
 
     # ПРЕДОБРАБОТКА ДАННЫХ
     
     train_df, val_df = train_test_split(
         raw_df,
-        raw_df,
         test_size=config.data.val_size,
         random_state=SEED,
         stratify=raw_df[config.data.target_col]
-        stratify=raw_df[config.data.target_col]
     )
     logger.info(f"Data split: {len(train_df)} train, {len(val_df)} validation samples.")
+
     data_loader, valid_data_loader = instantiate(
         config.data_loader, 
         train_df=train_df, 
@@ -84,36 +72,22 @@ def train_worker(config: DictConfig):
 
     tabular_input_dim = len(config.data.tabular_cols)
     logger.info(f"Tabular input dimension: {tabular_input_dim}")
-    model = instantiate(config.arch, tabular_input_dim=tabular_input_dim)
+    model: MultimodalModel = instantiate(config.arch, tabular_input_dim=tabular_input_dim)
 
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     logger.info(model)
     logger.info(f'Trainable parameters: {sum([p.numel() for p in trainable_params])}')
-
-    # pos_weight = torch.tensor([14.1])
-    # criterion = instantiate(config.loss, pos_weight=pos_weight)
-
-    pos_weight = torch.tensor([8.0]).to(device="cuda")
-    criterion = instantiate(config.loss, pos_weight=pos_weight)
-
-    # criterion = instantiate(config.loss)
     
     criterion = instantiate(config.loss)
     metrics = [instantiate(met, is_func=True) for met in config['metrics']]
     
     optimizer = instantiate(config.optimizer, model.parameters())
     lr_scheduler = instantiate(config.lr_scheduler, optimizer)
-    
-    optimizer = torch.optim.AdamW([
-    {"params": model.parameters()}
-    ], lr=1e-5, weight_decay=0.0001)
-
-    trainer = Trainer(model, 2, criterion, metrics, optimizer,
         
     optimizer = torch.optim.AdamW([
     {"params": model.parameters()}
-    ], lr=1e-3, weight_decay=1e-4)
-
+    ], lr=1e-4, weight_decay=1e-4)
+    
     trainer = Trainer(model, 2, criterion, metrics, optimizer,
                       config=config,
                       data_loader=data_loader,
@@ -123,59 +97,18 @@ def train_worker(config: DictConfig):
     trainer.train()
     
     for name, param in model.named_parameters():
-        if 'text_net.bert.encoder.layer.2.' in name or \
-        'image_net.model.features.8.' in name:
-            param.requires_grad = True
-
-    optimizer = torch.optim.AdamW([
-        {"params": model.classifier.parameters(), "lr": 5e-5},
-        {"params": model.image_net.model.features[8].parameters(), "lr": 2e-5},
-        {"params": model.text_net.bert.encoder.layer[2].parameters(), "lr": 2e-5}
-    ], lr=1e-4, weight_decay=1e-4)
-    
-    trainer = Trainer(model, 3, criterion, metrics, optimizer,
-                       config=config,
-                      data_loader=data_loader,
-                      valid_data_loader=valid_data_loader,
-                      lr_scheduler=lr_scheduler
-                      )
-    
-    trainer.train()
-
-    for name, param in model.named_parameters():
-        if 'text_net.bert.encoder.layer.1.' in name or \
-        'image_net.model.features.7.' in name:
-            param.requires_grad = True
-    
-    optimizer = torch.optim.AdamW(params=[
-        {"params": model.classifier.parameters(), "lr": 2e-5},
-        {"params": model.image_net.model.features[8].parameters(), "lr": 1e-5},
-        {"params": model.image_net.model.features[7].parameters(), "lr": 1e-5},
-        {"params": model.image_net.model.features[7].parameters(), "lr": 1e-5},
-        {"params": model.text_net.bert.encoder.layer[2].parameters(), "lr": 1e-5},
-        {"params": model.text_net.bert.encoder.layer[1].parameters(), "lr": 1e-5}
-        ], weight_decay=1e-4)
-    
-    trainer = Trainer(model, 3, criterion, metrics, optimizer,
-                       config=config,
-                       data_loader=data_loader,
-                      valid_data_loader=valid_data_loader,
-                       lr_scheduler=lr_scheduler
-                       )
-    
-                      lr_scheduler=lr_scheduler
-                      )
-    trainer.train()
-    
-    for name, param in model.named_parameters():
         if 'text_net.bert.encoder.layer.11.' in name or \
             'text_net.bert.pooler.' in name or \
             'image_net.model.features.8.' in name:
             param.requires_grad = True
-
+    
 
     optimizer = torch.optim.AdamW([
         {"params": model.proj.parameters(), "lr": 5e-4},
+        {"params": model.modality_projection.parameters(), "lr": 1e-4},
+        {"params": model.transformer_encoder.parameters(), "lr": 5e-5},
+        {"params": model.cls_token, "lr": 1e-4},
+        {"params": model.pos_encoder.parameters(), "lr": 5e-5},
         {"params": model.tabnet.parameters(), "lr": 1e-3},
         {"params": model.classifier.parameters(), "lr": 5e-4},
         {"params": model.cross_attention.parameters(), "lr": 5e-5},
@@ -201,13 +134,49 @@ def train_worker(config: DictConfig):
     optimizer = torch.optim.AdamW(params=[
         {"params": model.proj.parameters(), "lr": 1e-4},
         {"params": model.tabnet.parameters(), "lr": 1e-3},
+        {"params": model.modality_projection.parameters(), "lr": 5e-5},
+        {"params": model.pos_encoder.parameters(), "lr": 2e-5},
+        {"params": model.transformer_encoder.parameters(), "lr": 1e-5},
         {"params": model.classifier.parameters(), "lr": 2e-4},
+        {"params": model.cls_token, "lr": 5e-5},
         {"params": model.cross_attention.parameters(), "lr": 5e-5},
-        {"params": model.image_net.model.features[8].parameters(), "lr": 1e-5},
+        {"params": model.image_net.model.features[8].parameters(), "lr": 5e-6},
         {"params": model.image_net.model.features[7].parameters(), "lr": 1e-5},
         {"params": model.text_net.bert.pooler.parameters(), "lr": 2e-6},
         {"params": model.text_net.bert.encoder.layer[10].parameters(), "lr": 1e-5},
         {"params": model.text_net.bert.encoder.layer[11].parameters(), "lr": 1e-6}
+    ], weight_decay=1e-4)
+    
+    trainer = Trainer(model, 3, criterion, metrics, optimizer,
+                       config=config,
+                       data_loader=data_loader,
+                      valid_data_loader=valid_data_loader,
+                       lr_scheduler=lr_scheduler
+                       )
+    
+    trainer.train()
+
+    for name, param in model.named_parameters():
+        if 'text_net.bert.encoder.layer.9.' in name or \
+            'image_net.model.features.6.' in name:
+            param.requires_grad = True
+
+    optimizer = torch.optim.AdamW(params=[
+        {"params": model.proj.parameters(), "lr": 1e-4},
+        {"params": model.tabnet.parameters(), "lr": 1e-4},
+        {"params": model.cross_attention.parameters(), "lr": 5e-5},
+        {"params": model.modality_projection.parameters(), "lr": 1e-5},
+        {"params": model.pos_encoder.parameters(), "lr": 5e-6},
+        {"params": model.cls_token, "lr": 5e-6},
+        {"params": model.transformer_encoder.parameters(), "lr": 2e-6},
+        {"params": model.classifier.parameters(), "lr": 1e-4},
+        {"params": model.image_net.model.features[8].parameters(), "lr": 1e-6},
+        {"params": model.image_net.model.features[7].parameters(), "lr": 3e-6},
+        {"params": model.image_net.model.features[6].parameters(), "lr": 1e-5},
+        {"params": model.text_net.bert.pooler.parameters(), "lr": 2e-6},
+        {"params": model.text_net.bert.encoder.layer[9].parameters(), "lr": 3e-6},
+        {"params": model.text_net.bert.encoder.layer[10].parameters(), "lr": 1e-6},
+        {"params": model.text_net.bert.encoder.layer[11].parameters(), "lr": 5e-7}
     ], weight_decay=1e-4)
     
     trainer = Trainer(model, 3, criterion, metrics, optimizer,
