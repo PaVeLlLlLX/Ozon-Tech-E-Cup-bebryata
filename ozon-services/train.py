@@ -83,7 +83,7 @@ def train_worker(config: DictConfig):
     {"params": model.parameters()}
     ], lr=1e-5, weight_decay=0.0001)
 
-    trainer = Trainer(model, 10, criterion, metrics, optimizer,
+    trainer = Trainer(model, 2, criterion, metrics, optimizer,
                       config=config,
                       data_loader=data_loader,
                       valid_data_loader=valid_data_loader,
@@ -91,42 +91,48 @@ def train_worker(config: DictConfig):
                       )
     trainer.train()
     
-    # for name, param in model.image_net.named_parameters():
-    #     if 'features.6' in name:
-    #         param.requires_grad = True
-    
-    # optimizer = torch.optim.AdamW([
-    # {"params": model.classifier.parameters()},
-    # {"params": model.image_net.model.features[6].parameters(), "lr": 1e-5}
-    # ], lr=1e-4, weight_decay=0.0001, betas = [0.9, 0.999], eps = 1e-8)
-    
-    # trainer = Trainer(model, 7, criterion, metrics, optimizer,
-    #                    config=config,
-    #                   data_loader=data_loader,
-    #                   valid_data_loader=valid_data_loader,
-    #                   lr_scheduler=lr_scheduler
-    #                   )
-    
-    # trainer.train()
+    for name, param in model.named_parameters():
+        if 'text_net.bert.encoder.layer.2.' in name or \
+        'image_net.model.features.8.' in name:
+            param.requires_grad = True
 
-    # for name, param in model.image_net.named_parameters():
-    #     if 'features.5' in name:
-    #         param.requires_grad = True
+    optimizer = torch.optim.AdamW([
+        {"params": model.classifier.parameters(), "lr": 5e-5},
+        {"params": model.image_net.model.features[8].parameters(), "lr": 2e-5},
+        {"params": model.text_net.bert.encoder.layer[2].parameters(), "lr": 2e-5}
+    ], lr=1e-4, weight_decay=1e-4)
     
-    # optimizer = torch.optim.AdamW([
-    # {"params": model.classifier.parameters()},
-    # {"params": model.image_net.model.features[5].parameters(), "lr": 1e-6},
-    # {"params": model.image_net.model.features[6].parameters(), "lr": 1e-6}
-    # ], lr=1e-5, weight_decay=0.00001, betas = [0.9, 0.999], eps = 1e-8)
+    trainer = Trainer(model, 3, criterion, metrics, optimizer,
+                       config=config,
+                      data_loader=data_loader,
+                      valid_data_loader=valid_data_loader,
+                      lr_scheduler=lr_scheduler
+                      )
     
-    # trainer = Trainer(model, 10, criterion, metrics, optimizer,
-    #                    config=config,
-    #                    data_loader=data_loader,
-    #                   valid_data_loader=valid_data_loader,
-    #                    lr_scheduler=lr_scheduler
-    #                    )
+    trainer.train()
+
+    for name, param in model.named_parameters():
+        if 'text_net.bert.encoder.layer.1.' in name or \
+        'image_net.model.features.7.' in name:
+            param.requires_grad = True
     
-    # trainer.train()
+    optimizer = torch.optim.AdamW(params=[
+        {"params": model.classifier.parameters(), "lr": 2e-5},
+        {"params": model.image_net.model.features[8].parameters(), "lr": 1e-5},
+        {"params": model.image_net.model.features[7].parameters(), "lr": 1e-5},
+        {"params": model.image_net.model.features[7].parameters(), "lr": 1e-5},
+        {"params": model.text_net.bert.encoder.layer[2].parameters(), "lr": 1e-5},
+        {"params": model.text_net.bert.encoder.layer[1].parameters(), "lr": 1e-5}
+        ], weight_decay=1e-4)
+    
+    trainer = Trainer(model, 3, criterion, metrics, optimizer,
+                       config=config,
+                       data_loader=data_loader,
+                      valid_data_loader=valid_data_loader,
+                       lr_scheduler=lr_scheduler
+                       )
+    
+    trainer.train()
 
 def init_worker(working_dir, config):
     # initialize training config

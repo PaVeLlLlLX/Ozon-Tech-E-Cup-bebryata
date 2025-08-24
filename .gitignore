@@ -154,3 +154,5 @@ tensorboard/
 /ozon-services/catboost_info/
 /ozon-services/artifacts/
 *.parquet
+*.cbm
+*.csv

@@ -3,6 +3,7 @@ data:
   csv_path: "../data/processed/train.csv"
   #processed_tabular_path: "../data/processed/train.parquet"
   images_dir: "../data/train/ml_ozon_сounterfeit_train_images/"
+  test_images_dir: "../data/test/ml_ozon_сounterfeit_test_images/"
   
   id_col: "ItemID"
   target_col: "resolution"
@@ -198,6 +199,17 @@ tokenizer:
 data_loader:
   _target_: srcs.data_loader.data_loaders.get_dataloaders
   images_dir: ${data.images_dir}
+  tokenizer: ${tokenizer}
+  tabular_cols: ${data.tabular_cols}
+  target_col: ${data.target_col}
+  id_col: ${data.id_col}
+  text_cols: ${data.text_cols}
+  batch_size: ${batch_size}
+  num_workers: ${n_cpu}
+
+test_data_loader:
+  _target_: srcs.data_loader.data_loaders.get_test_dataloader
+  images_dir: ${data.test_images_dir}
   tokenizer: ${tokenizer}
   tabular_cols: ${data.tabular_cols}
   target_col: ${data.target_col}

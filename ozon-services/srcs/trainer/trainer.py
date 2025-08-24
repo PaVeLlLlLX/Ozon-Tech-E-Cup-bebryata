@@ -90,7 +90,7 @@ class Trainer(BaseTrainer):
                 self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx)
                 self.valid_metrics.update('loss', loss.item())
                 
-                metric_output = torch.round(output)
+                metric_output = torch.round(torch.sigmoid(output))
                 for met in self.metric_ftns:
                     self.valid_metrics.update(met.__name__, met(metric_output.cpu(), target.cpu()))
 

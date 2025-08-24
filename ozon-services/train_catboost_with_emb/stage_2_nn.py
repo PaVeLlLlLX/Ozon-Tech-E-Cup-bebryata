@@ -31,7 +31,7 @@ def extract_features(config: DictConfig):
 
     # df = pd.read_csv(hydra.utils.to_absolute_path(config.data.csv_path))
     # train_df, val_df = train_test_split(df, test_size=config.data.val_size, random_state=SEED, stratify=df[config.data.target_col])
-    df = pd.read_csv("../data/train_with_folds.csv")
+    # df = pd.read_csv("../data/train_with_folds.csv")
     
     VAL_FOLD = 0
     df_train_val = pd.read_csv("../data/train_with_folds.csv", index_col='id')

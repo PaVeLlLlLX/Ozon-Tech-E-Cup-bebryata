@@ -16,29 +16,16 @@ os.environ['OPENCV_LOG_LEVEL'] = 'ERROR'
 
 
 transform_train = A.Compose([
-    A.Resize(384, 384),
-    #A.HorizontalFlip(p=0.5),
-    #A.Rotate(limit=5, p=0.3),
-    #A.RandomFog(fog_coef_range=(0.1, 0.2), alpha_coef=0.1, p=0.4),
-    #A.Perspective(scale=(0.05, 0.1), p=0.25, keep_size=True),
-    A.RandomResizedCrop(p=0.3, size=[384, 384], scale=(0.08, 0.2)),
-    A.CoarseDropout(p=0.2),
-    A.ColorJitter(),
-    #A.Cutout(),
+    A.Resize(384, 384), 
+    A.HorizontalFlip(p=0.5),
+    A.CoarseDropout(max_holes=12, max_height=40, max_width=40, min_holes=8, fill_value=0, p=0.7),
+    A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.8),
     A.OneOf([
-        A.CLAHE(p=0.25),
-        A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.1, p=0.3),
-        A.RandomGamma(gamma_limit=(90, 110), p=0.3), 
-    ], p=0.7),
-    A.GaussNoise(p=0.4),
-    # A.RandomSunFlare(
-    #     flare_roi=(0, 0, 1, 1),
-    #     angle_range=(0,1),
-    #     src_radius=100,
-    #     src_color=(255, 255, 255),
-    #     num_flare_circles_range = (1, 4),
-    #     p=0.2
-    # ),
+        A.GaussianBlur(blur_limit=(3, 7), p=0.5),
+        A.MotionBlur(blur_limit=(3, 7), p=0.5),
+    ], p=0.4),
+    A.GaussNoise(var_limit=(10.0, 50.0), p=0.4),
+    A.RandomBrightnessContrast(p=0.5),
     A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ToTensorV2(),
 ])
