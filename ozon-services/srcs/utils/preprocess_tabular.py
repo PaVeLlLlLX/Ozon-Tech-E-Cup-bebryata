@@ -137,9 +137,11 @@ def generate_all_features(df):
 
     # Подозрительные ключевые слова для контрафакта
     fake_keywords = ['оригинал', 'гарантия', '100%', 'качество', 'новый', 'лицензия']
+    '''
     df['fake_keywords_count'] = sum(
         df['description'].str.count(word, case=False) for word in fake_keywords
     )
+    '''
     
     # Функция для brand_in_name_score
     def brand_match_score(row):
@@ -329,9 +331,11 @@ def generate_all_features(df):
     # Seller newbie (new sellers riskier)
     df['seller_newbie'] = (df['seller_time_alive'] < 30).astype(int)
     # Brand fraud rate (mean resolution per brand, only train)
+    '''
     if 'resolution' in df.columns: # !!! Возможна утечка !!!
         brand_fraud = df.groupby('brand_name')['resolution'].mean()
         df['brand_fraud_rate'] = df['brand_name'].map(brand_fraud).fillna(0)
+    '''
     # Has multiple items (repeats per seller)
     df['has_multiple_items'] = (df.groupby('SellerID')['id'].transform('count') > 1).astype(int)
 
@@ -447,7 +451,7 @@ def create_ts_features(df):
         .reset_index(level=0, drop=True)
         .fillna(0)
     )
-
+    '''
     # доля контрафакта у продавца в прошлом (только для train)
     if 'resolution' in df.columns:
         df['seller_fraud_rate_expanding'] = (
@@ -456,6 +460,7 @@ def create_ts_features(df):
             .reset_index(level=0, drop=True)
             .fillna(-1)
     )
+    '''
     return df
 
 
