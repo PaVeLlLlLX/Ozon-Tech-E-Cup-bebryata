@@ -1,6 +1,17 @@
 # @package _global_
 data_test:
-  csv_path: "../data/processed/test.csv"
+  csv_path: "../data/processed_by_misha/test.csv"
+  images_dir: "../data/test/ml_ozon_сounterfeit_test_images/"
+
+  id_col: "ItemID"
+
+  text_cols:
+    - "description"
+    - "name_rus"
+
+
+ data_test:
+  csv_path: "../data/processed_by_misha/test.csv"
   images_dir: "../data/test/ml_ozon_сounterfeit_test_images/"
 
   id_col: "ItemID"
@@ -12,7 +23,6 @@ data_test:
 
   tabular_cols:
     # Исходные числовые признаки (уже отмасштабированные)
-    - ItemID
     - rating_1_count_scaled
     - rating_2_count_scaled
     - rating_3_count_scaled
@@ -50,28 +60,48 @@ data_test:
     - ItemVarietyCount_scaled
     - ItemAvailableCount_scaled
     - seller_time_alive_scaled
-    - price_vs_cat_median_scaled
+
+    # Новые базовые признаки (из текста, булевы и т.д.)
     - name_len_scaled
     - name_word_count_scaled
+    - caps_ratio_in_name_scaled
     - has_копия_scaled
     - has_реплика_scaled
     - has_аналог_scaled
     - has_совместимый_scaled
     - brand_in_name_score_scaled
-    - has_ratings_scaled
-    - has_brand_scaled
     - has_fake_returns_scaled
+    - has_photo_scaled # Этот признак был в старом коде, я его оставил
+    
+    # Новые продвинутые признаки (соотношения, агрегаты по продавцу)
+    - price_vs_cat_median_scaled
+    - price_vs_brand_median_scaled
+    - item_return_ratio_90_scaled
+    - item_fake_return_ratio_90_scaled
+    - total_ratings_scaled
+    - avg_rating_scaled
+    - rating_polarization_scaled
+    - seller_avg_item_price_scaled
+    - seller_total_sales_90_scaled
+    - seller_total_returns_90_scaled
+    - seller_total_fake_returns_90_scaled
+    - seller_avg_rating_scaled
+    - seller_return_rate_90_scaled
+    - seller_fake_return_rate_90_scaled
+
+    # Признаки после Target Encoding
     - brand_name_te
     - SellerID_te
     - CommercialTypeName4_te
 
+
 data_loader:
   _target_: srcs.data_loader.data_loaders.get_test_dataloader
-  images_dir: ${data.images_dir}
+  images_dir: ${data_test.images_dir}
   tokenizer: ${tokenizer}
-  tabular_cols: ${data.tabular_cols}
+  tabular_cols: ${data_test.tabular_cols}
   target_col: ${data.target_col}
-  id_col: ${data.id_col}
-  text_cols: ${data.text_cols}
+  id_col: ${data_test.id_col}
+  text_cols: ${data_test.text_cols}
   batch_size: ${batch_size}
   num_workers: ${n_cpu}

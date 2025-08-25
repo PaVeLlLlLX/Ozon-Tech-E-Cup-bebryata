@@ -8,6 +8,12 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 from srcs.utils import instantiate
 from srcs.model.model import MultimodalModel
+SEED = 123
+torch.manual_seed(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(SEED)
+
 
 logger = logging.getLogger('predict')
 
@@ -19,21 +25,20 @@ def predict(config: DictConfig) -> None:
         logger.error(f"Checkpoint file not found at {checkpoint_path}")
         return
 
-    tabular_input_dim = len(config.data.tabular_cols)
+    tabular_input_dim = len(config.data_test.tabular_cols)
     logger.info(f"Tabular input dimension: {tabular_input_dim}")
     
     model = instantiate(config.arch, tabular_input_dim=tabular_input_dim)
     
     model.load_state_dict(checkpoint)
     logger.info("Model loaded successfully.")
-
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)
     model.eval()
     logger.info(f"Model moved to {device} and set to evaluation mode.")
 
-    logger.info(f"Loading test data from: {config.data_test.csv_path}")
-    test_df_path = "../data/processed/test.csv"
+    test_df_path = "../data/processed_by_misha/test.csv"
     try:
         test_df = pd.read_csv(test_df_path)
     except FileNotFoundError:
@@ -61,7 +66,9 @@ def predict(config: DictConfig) -> None:
         for batch_data, _ in tqdm(test_data_loader, desc="Predicting"):
             batch_data = {k: v.to(device) for k, v in batch_data.items()}
             output_logits, _ = model(**batch_data)
-            batch_preds = torch.round(torch.sigmoid(output_logits)).cpu().numpy().astype(int)
+            output_preds = (torch.sigmoid(output_logits) > 0.9).long()
+            batch_preds = output_preds.cpu().numpy().astype(int)
+            # batch_preds = torch.round(torch.sigmoid(output_logits)).cpu().numpy().astype(int)
             all_predictions.extend(batch_preds)
 
     logger.info(f"Prediction complete. Total predictions: {len(all_predictions)}")
@@ -78,7 +85,7 @@ def predict(config: DictConfig) -> None:
     submission_df = test_df[['id', 'prediction']].copy()
 
 
-    submission_path = 'multimodal_submission.csv'
+    submission_path = 'multimodal_submission_0.9_with_misha_features.csv'
     submission_df.to_csv(submission_path, index=False)
     logger.info(f"Submission file saved to: {submission_path}")
 

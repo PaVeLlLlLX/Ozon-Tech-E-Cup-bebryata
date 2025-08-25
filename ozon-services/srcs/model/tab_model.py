@@ -25,7 +25,7 @@ class TabularNet(nn.Module):
 
 class TabNetModel(nn.Module):
     def __init__(self, input_dim, output_dim=64, n_d=32, n_a=32, n_steps=4, 
-                 gamma=1.3, n_independent=2, n_shared=2, momentum=0.02):
+                 gamma=1.3, n_independent=8, n_shared=8, momentum=0.02):
         super().__init__()
 
         group_matrix = torch.eye(input_dim).to('cuda')

@@ -87,7 +87,7 @@ def train_worker(config: DictConfig):
     {"params": model.parameters()}
     ], lr=1e-3, weight_decay=1e-4)
 
-    trainer = Trainer(model, 2, criterion, metrics, optimizer,
+    trainer = Trainer(model, 3, criterion, metrics, optimizer,
                       config=config,
                       data_loader=data_loader,
                       valid_data_loader=valid_data_loader,
@@ -112,7 +112,7 @@ def train_worker(config: DictConfig):
         {"params": model.text_net.bert.encoder.layer[11].parameters(), "lr": 2e-5}
     ], weight_decay=1e-4)
     
-    trainer = Trainer(model, 3, criterion, metrics, optimizer,
+    trainer = Trainer(model, 6, criterion, metrics, optimizer,
                        config=config,
                       data_loader=data_loader,
                       valid_data_loader=valid_data_loader,
@@ -128,17 +128,17 @@ def train_worker(config: DictConfig):
     
     optimizer = torch.optim.AdamW(params=[
         {"params": model.proj.parameters(), "lr": 1e-4},
-        {"params": model.tabnet.parameters(), "lr": 1e-3},
+        {"params": model.tabnet.parameters(), "lr": 1e-4},
         {"params": model.classifier.parameters(), "lr": 2e-4},
-        {"params": model.cross_attention.parameters(), "lr": 5e-5},
+        {"params": model.cross_attention.parameters(), "lr": 2e-5},
         {"params": model.image_net.model.features[8].parameters(), "lr": 1e-5},
         {"params": model.image_net.model.features[7].parameters(), "lr": 1e-5},
-        {"params": model.text_net.bert.pooler.parameters(), "lr": 2e-6},
+        {"params": model.text_net.bert.pooler.parameters(), "lr": 3e-6},
         {"params": model.text_net.bert.encoder.layer[10].parameters(), "lr": 1e-5},
         {"params": model.text_net.bert.encoder.layer[11].parameters(), "lr": 1e-6}
     ], weight_decay=1e-4)
     
-    trainer = Trainer(model, 3, criterion, metrics, optimizer,
+    trainer = Trainer(model, 6, criterion, metrics, optimizer,
                        config=config,
                        data_loader=data_loader,
                       valid_data_loader=valid_data_loader,
